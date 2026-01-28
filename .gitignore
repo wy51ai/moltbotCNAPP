@@ -23,6 +23,7 @@ go.work
 # IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
