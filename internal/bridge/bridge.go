@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yourusername/clawdbot-bridge/internal/clawdbot"
-	"github.com/yourusername/clawdbot-bridge/internal/feishu"
+	"github.com/wy51ai/moltbotCNAPP/internal/clawdbot"
+	"github.com/wy51ai/moltbotCNAPP/internal/feishu"
 )
 
 // Bridge connects Feishu and ClawdBot

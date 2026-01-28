@@ -1,4 +1,4 @@
-module github.com/yourusername/clawdbot-bridge
+module github.com/wy51ai/moltbotCNAPP
 
 go 1.21
 

@@ -15,6 +15,7 @@
 /bin/
 /dist/
 clawdbot-bridge
+/bridge
 
 # Go workspace file
 go.work

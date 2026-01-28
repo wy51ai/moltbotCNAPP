@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yourusername/clawdbot-bridge/internal/bridge"
-	"github.com/yourusername/clawdbot-bridge/internal/clawdbot"
-	"github.com/yourusername/clawdbot-bridge/internal/config"
-	"github.com/yourusername/clawdbot-bridge/internal/feishu"
+	"github.com/wy51ai/moltbotCNAPP/internal/bridge"
+	"github.com/wy51ai/moltbotCNAPP/internal/clawdbot"
+	"github.com/wy51ai/moltbotCNAPP/internal/config"
+	"github.com/wy51ai/moltbotCNAPP/internal/feishu"
 )
 
 func main() {
