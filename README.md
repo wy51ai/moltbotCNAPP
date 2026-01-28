@@ -98,7 +98,7 @@ tail -f ~/.clawdbot/bridge.log
 
 ## 贡献
 
-欢迎提交 Issue 和 Pull Request！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+欢迎提交 Issue 和 Pull Request！
 
 ## 许可证
 
