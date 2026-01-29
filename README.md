@@ -86,6 +86,62 @@ go build -o clawdbot-bridge ./cmd/bridge/
 tail -f ~/.clawdbot/bridge.log
 ```
 
+## Webhook 模式
+
+### 适用场景
+
+Webhook 模式适用于需要公网访问的生产环境，相比 WebSocket 模式具有以下优势：
+
+- **更高可靠性**：飞书事件订阅机制自动重试，不依赖长连接稳定性
+- **更易扩展**：支持多实例水平扩展（通过负载均衡）
+- **更低资源消耗**：无需维护长连接，空闲时几乎零开销
+
+**注意**：Webhook 模式需要公网可访问的 URL（生产环境通过域名，开发环境可使用 ngrok）
+
+### 配置字段
+
+| 字段 | 说明 | 默认值 | 必填 |
+|------|------|--------|------|
+| `mode` | 运行模式 | `websocket` | 否 |
+| `port` | HTTP 监听端口 | `8080` | 否 |
+| `path` | Webhook 路径 | `/webhook/event` | 否 |
+| `verification_token` | 飞书 Verification Token | — | **是** |
+| `encrypt_key` | 飞书 Encrypt Key | — | **是** |
+| `workers` | 并发处理 Worker 数量 | `10` | 否 |
+| `queue_size` | 事件队列大小 | `100` | 否 |
+
+### 完整配置示例
+
+在 `~/.clawdbot/bridge.json` 中配置：
+
+```json
+{
+  "mode": "webhook",
+  "port": 8080,
+  "path": "/webhook/event",
+  "verification_token": "your_verification_token_from_feishu",
+  "encrypt_key": "your_encrypt_key_from_feishu",
+  "workers": 10,
+  "queue_size": 100,
+  "fs_app_id": "cli_xxx",
+  "fs_app_secret": "yyy",
+  "agent_id": "main",
+  "thinking_ms": 0
+}
+```
+
+### 启动 Webhook 模式
+
+```bash
+# 方式 1: 通过 CLI 参数（会自动保存到 bridge.json）
+./clawdbot-bridge start mode=webhook verification_token=xxx encrypt_key=yyy
+
+# 方式 2: 直接修改 ~/.clawdbot/bridge.json，然后启动
+./clawdbot-bridge start
+```
+
+启动后服务监听在 `http://0.0.0.0:8080/webhook/event`。
+
 ## 开发
 
 ```bash
