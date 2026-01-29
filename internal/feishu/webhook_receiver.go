@@ -38,6 +38,19 @@ var (
 		},
 		[]string{"endpoint"},
 	)
+	messageProcessingDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "feishu_message_processing_duration_seconds",
+			Help:    "Histogram of message handler execution duration",
+			Buckets: prometheus.DefBuckets,
+		},
+	)
+	signatureFailuresTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "feishu_webhook_signature_failures_total",
+			Help: "Total number of signature verification failures",
+		},
+	)
 	workerQueueDepth = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "feishu_worker_queue_depth",
@@ -55,6 +68,8 @@ var (
 func init() {
 	prometheus.MustRegister(webhookRequestsTotal)
 	prometheus.MustRegister(webhookRequestDuration)
+	prometheus.MustRegister(messageProcessingDuration)
+	prometheus.MustRegister(signatureFailuresTotal)
 	prometheus.MustRegister(workerQueueDepth)
 	prometheus.MustRegister(workerQueueCapacity)
 }
@@ -193,11 +208,20 @@ func (wr *WebhookReceiver) handleMessageEvent(event *larkim.P2MessageReceiveV1) 
 	// Convert event to Message
 	msg := wr.convertEventToMessage(event)
 
-	// Create job with handler
+	// Get message ID for logging
+	messageID := msg.MessageID
+
+	// Create job with handler that measures execution time
 	job := Job{
 		EventID: eventID,
 		Handler: func() error {
-			return wr.handler(msg)
+			start := time.Now()
+			err := wr.handler(msg)
+			duration := time.Since(start)
+			messageProcessingDuration.Observe(duration.Seconds())
+			log.Printf("[Webhook] event=processed event_id=%s message_id=%s duration_ms=%d",
+				eventID, messageID, duration.Milliseconds())
+			return err
 		},
 	}
 
@@ -292,6 +316,7 @@ func (wr *WebhookReceiver) webhookHandler(w http.ResponseWriter, r *http.Request
 		bodyStr := string(resp.Body)
 		// Check for signature verification failure
 		if contains(bodyStr, "signature verification failed") {
+			signatureFailuresTotal.Inc()
 			log.Printf("[Webhook] Signature verification failed from %s", r.RemoteAddr)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
