@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 
 ## Current Position
 
-Phase: 2 of 4 (Webhook Server) - COMPLETE
-Plan: 3 of 3 in Phase 2
-Status: Phase 2 Complete, ready for Phase 3
-Last activity: 2026-01-29 - Completed 02-03-PLAN.md
+Phase: 3 of 4 (Config Mode) - IN PROGRESS
+Plan: 1 of 2 in Phase 3
+Status: Completed 03-01-PLAN.md
+Last activity: 2026-01-29 - Completed 03-01-PLAN.md
 
-Progress: [██░░] 50% (Phase 2/4 complete)
+Progress: [██▓░] 57% (6/10 plans complete)
 
 ## Session Continuity
 
-Last session: 2026-01-29T04:30:00Z
-Stopped at: Completed 02-03-PLAN.md (Health/Metrics Endpoints)
+Last session: 2026-01-29T06:31:26Z
+Stopped at: Completed 03-01-PLAN.md (Config Mode Switching)
 Resume file: None
 
 ## Accumulated Context
@@ -47,6 +47,11 @@ Resume file: None
 - 5秒 ticker 更新队列深度指标（平衡精度和开销）（02-03）
 - Prometheus default buckets 用于请求延迟直方图（02-03）
 
+### Execution Decisions (Phase 3)
+- Mode 默认 "websocket" 保持向后兼容（03-01）
+- Webhook 模式在 config.Load() 验证必填字段，fail fast（03-01）
+- CLI 参数 mode=webhook 保存到 bridge.json（03-01）
+
 ### Research Findings
 - SDK v3.5.3 完整支持 webhook 事件处理
 - 使用 `net/http` 标准库，无需 gin/echo
@@ -69,6 +74,7 @@ Resume file: None
 | 02-01 | Worker Pool | WorkerPool with bounded queue, panic recovery, graceful shutdown | worker_pool.go, worker_pool_test.go |
 | 02-02 | WebhookReceiver | HTTP webhook receiver with SDK dispatcher, custom error code mapping | webhook_receiver.go, webhook_receiver_test.go |
 | 02-03 | Health/Metrics | Prometheus metrics, /health, /metrics endpoints | webhook_receiver.go, go.mod |
+| 03-01 | Config Mode | Mode switching between WebSocket/Webhook via config with validation | config.go, main.go |
 
 ## Phase 1 Deliverables
 
@@ -88,5 +94,12 @@ Resume file: None
   - `/metrics` - Prometheus 格式指标
   - 指标：requests_total, request_duration, queue_depth, queue_capacity
 
+## Phase 3 Deliverables (IN PROGRESS)
+
+- Config-driven mode switching (internal/config/config.go) - DONE
+- Webhook 模式安全验证 (verification_token, encrypt_key) - DONE
+- main.go 模式切换逻辑 (cmd/bridge/main.go) - DONE
+- CLI 参数 mode 支持 - DONE
+
 ---
-*State updated: 2026-01-29T04:30:00Z*
+*State updated: 2026-01-29T06:31:26Z*
