@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 ## Current Position
 
 Phase: 2 of 4 (Webhook Server)
-Plan: 1 of 4 in Phase 2
+Plan: 2 of 4 in Phase 2
 Status: In progress
-Last activity: 2026-01-29 - Completed 02-01-PLAN.md
+Last activity: 2026-01-29 - Completed 02-02-PLAN.md
 
-Progress: [██░░] 31% (Phase 1 complete + 02-01)
+Progress: [███░] 44% (Phase 1 complete + 02-01 + 02-02)
 
 ## Session Continuity
 
-Last session: 2026-01-29T04:07:55Z
-Stopped at: Completed 02-01-PLAN.md (Worker Pool)
+Last session: 2026-01-29T04:16:06Z
+Stopped at: Completed 02-02-PLAN.md (WebhookReceiver)
 Resume file: None
 
 ## Accumulated Context
@@ -42,6 +42,8 @@ Resume file: None
 - Panic recovery 在 job 执行层（executeJob 方法）而非 goroutine 顶层，确保 worker 继续处理
 - Submit 使用 RLock 保护 closed 检查和发送在同一临界区，避免与 Shutdown 竞态
 - Shutdown 有序关闭：写锁 -> closed=true -> close(channel) -> 解锁 -> 等待
+- 使用 SDK Handle 方法 + 响应体解析实现错误码映射（02-02）
+- Challenge 在 SDK dispatcher 之前单独处理（无需签名验证）（02-02）
 
 ### Research Findings
 - SDK v3.5.3 完整支持 webhook 事件处理
@@ -63,6 +65,7 @@ Resume file: None
 | 01-02 | Client Refactoring | Client 内嵌 RESTSender，删除重复代码 | ws_receiver.go |
 | 01-03 | Bridge Integration | Bridge 依赖接口，闭包解决循环依赖 | bridge.go, main.go |
 | 02-01 | Worker Pool | WorkerPool with bounded queue, panic recovery, graceful shutdown | worker_pool.go, worker_pool_test.go |
+| 02-02 | WebhookReceiver | HTTP webhook receiver with SDK dispatcher, custom error code mapping | webhook_receiver.go, webhook_receiver_test.go |
 
 ## Phase 1 Deliverables
 
@@ -75,9 +78,9 @@ Resume file: None
 ## Phase 2 Deliverables (In Progress)
 
 - `WorkerPool` 并发控制 (internal/feishu/worker_pool.go) - DONE
-- `WebhookReceiver` HTTP 服务器 - TODO (02-02)
+- `WebhookReceiver` HTTP 服务器 (internal/feishu/webhook_receiver.go) - DONE
 - Event 处理和去重 - TODO (02-03)
 - 集成测试 - TODO (02-04)
 
 ---
-*State updated: 2026-01-29*
+*State updated: 2026-01-29T04:16:06Z*
