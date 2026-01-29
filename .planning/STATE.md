@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 ## Current Position
 
 Phase: 4 of 4 (E2E Testing & Docs) - IN PROGRESS
-Plan: 1 of 2 in Phase 4
-Status: Completed 04-01 (Webhook Receiver Test Coverage)
-Last activity: 2026-01-29 - Completed 04-01-PLAN.md
+Plan: 2 of 2 in Phase 4
+Status: Completed 04-02 (Webhook Receiver Observability)
+Last activity: 2026-01-29 - Completed 04-02-PLAN.md
 
-Progress: [████] 87.5% (Phase 4, Plan 1/2 complete)
+Progress: [████] 100% (Phase 4, Plan 2/2 complete)
 
 ## Session Continuity
 
-Last session: 2026-01-29T07:45:00Z
-Stopped at: Completed 04-01 (Webhook Receiver Test Coverage)
+Last session: 2026-01-29T15:46:42Z
+Stopped at: Completed 04-02 (Webhook Receiver Observability)
 Resume file: None
 
 ## Accumulated Context
@@ -56,6 +56,8 @@ Resume file: None
 - Atomic counter pattern 用于异步 handler 调用验证（04-01）
 - TempDir + t.Setenv 隔离 config 测试环境（04-01）
 - 直接构造 SDK 事件对象测试内部逻辑，绕过 HTTP 层（04-01）
+- Handler 执行耗时与 HTTP 请求耗时分离为独立指标（04-02）
+- key=value 日志格式便于解析和查询（04-02）
 
 ### Research Findings
 - SDK v3.5.3 完整支持 webhook 事件处理
@@ -81,6 +83,7 @@ Resume file: None
 | 02-03 | Health/Metrics | Prometheus metrics, /health, /metrics endpoints | webhook_receiver.go, go.mod |
 | 03-01 | Config Mode | Mode switching between WebSocket/Webhook via config with validation | config.go, main.go |
 | 04-01 | Webhook Test Coverage | Unit tests: success path, bad request, config validation | webhook_receiver_test.go, config_test.go |
+| 04-02 | Webhook Observability | Handler execution duration, signature failure counter, key=value logging | webhook_receiver.go, webhook_receiver_test.go |
 
 ## Phase 1 Deliverables
 
@@ -98,7 +101,7 @@ Resume file: None
 - Prometheus 指标和健康端点 - DONE
   - `/health` - JSON 状态响应
   - `/metrics` - Prometheus 格式指标
-  - 指标：requests_total, request_duration, queue_depth, queue_capacity
+  - 指标：requests_total, request_duration, queue_depth, queue_capacity, message_processing_duration, signature_failures_total
 
 ## Phase 3 Deliverables (COMPLETE)
 
@@ -107,7 +110,7 @@ Resume file: None
 - main.go 模式切换逻辑 (cmd/bridge/main.go) - DONE
 - CLI 参数 mode 支持 - DONE
 
-## Phase 4 Deliverables (IN PROGRESS)
+## Phase 4 Deliverables (COMPLETE)
 
 ### Plan 01: Webhook Receiver Test Coverage (COMPLETE)
 - ✅ Success path test - TestWebhookReceiver_SuccessPath
@@ -115,9 +118,11 @@ Resume file: None
 - ✅ Config validation tests - webhook mode required fields
 - Test coverage: success path, bad request, config validation
 
-### Plan 02: E2E Integration Tests & Documentation (PENDING)
-- E2E tests for webhook mode
-- Documentation and README updates
+### Plan 02: Webhook Receiver Observability (COMPLETE)
+- ✅ Handler execution duration metric - feishu_message_processing_duration_seconds
+- ✅ Signature failure counter - feishu_webhook_signature_failures_total
+- ✅ Enhanced key=value logging - event_id, message_id, duration_ms
+- ✅ Observability regression tests - TestWebhookReceiver_Observability
 
 ---
-*State updated: 2026-01-29T07:45:00Z*
+*State updated: 2026-01-29T15:46:42Z*
