@@ -13,8 +13,7 @@ import (
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 )
 
-// MessageHandler is called when a message is received
-type MessageHandler func(msg *Message) error
+// MessageHandler is defined in receiver.go
 
 // Message represents a received message
 type Message struct {
