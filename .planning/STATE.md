@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 
 ## Current Position
 
-Phase: 1 of 4 (Interface Abstraction) - COMPLETE
-Plan: 3 of 3 in Phase 1
-Status: Phase 1 Complete, ready for Phase 2
-Last activity: 2026-01-29 - Completed 01-03-PLAN.md
+Phase: 2 of 4 (Webhook Server)
+Plan: 1 of 4 in Phase 2
+Status: In progress
+Last activity: 2026-01-29 - Completed 02-01-PLAN.md
 
-Progress: [█░░░] 25% (Phase 1/4 complete)
+Progress: [██░░] 31% (Phase 1 complete + 02-01)
 
 ## Session Continuity
 
-Last session: 2026-01-29T03:07:54Z
-Stopped at: Completed 01-03-PLAN.md (Phase 1 Complete)
+Last session: 2026-01-29T04:07:55Z
+Stopped at: Completed 02-01-PLAN.md (Worker Pool)
 Resume file: None
 
 ## Accumulated Context
@@ -37,6 +37,11 @@ Resume file: None
 - client.go 重命名为 ws_receiver.go 以反映 WebSocket 接收器角色（01-02）
 - 闭包模式解决循环依赖：先声明 bridgeInstance，闭包捕获引用（01-03）
 - 删除 SetFeishuClient 后置注入，构造函数直接接受接口（01-03）
+
+### Execution Decisions (Phase 2)
+- Panic recovery 在 job 执行层（executeJob 方法）而非 goroutine 顶层，确保 worker 继续处理
+- Submit 使用 RLock 保护 closed 检查和发送在同一临界区，避免与 Shutdown 竞态
+- Shutdown 有序关闭：写锁 -> closed=true -> close(channel) -> 解锁 -> 等待
 
 ### Research Findings
 - SDK v3.5.3 完整支持 webhook 事件处理
@@ -57,6 +62,7 @@ Resume file: None
 | 01-01 | Interface Abstraction | FeishuSender/FeishuReceiver 接口 | sender.go, receiver.go |
 | 01-02 | Client Refactoring | Client 内嵌 RESTSender，删除重复代码 | ws_receiver.go |
 | 01-03 | Bridge Integration | Bridge 依赖接口，闭包解决循环依赖 | bridge.go, main.go |
+| 02-01 | Worker Pool | WorkerPool with bounded queue, panic recovery, graceful shutdown | worker_pool.go, worker_pool_test.go |
 
 ## Phase 1 Deliverables
 
@@ -65,6 +71,13 @@ Resume file: None
 - `Client` 实现双接口 (internal/feishu/ws_receiver.go)
 - `Bridge` 依赖接口 (internal/bridge/bridge.go)
 - 无 SetFeishuClient，使用闭包模式 (cmd/bridge/main.go)
+
+## Phase 2 Deliverables (In Progress)
+
+- `WorkerPool` 并发控制 (internal/feishu/worker_pool.go) - DONE
+- `WebhookReceiver` HTTP 服务器 - TODO (02-02)
+- Event 处理和去重 - TODO (02-03)
+- 集成测试 - TODO (02-04)
 
 ---
 *State updated: 2026-01-29*
