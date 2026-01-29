@@ -22,7 +22,7 @@
 | 1 | 接口抽象和 REST 提取 | 1 天 | FeishuSender/Receiver 接口分离 | **Complete** |
 | 2 | Webhook Server (含安全) | 1.5 天 | HTTP 服务器 + 验签 + 解密 | **Complete** |
 | 3 | 配置扩展和模式切换 | 0.5 天 | 配置支持 + 启动逻辑 | **Complete** |
-| 4 | 端到端测试和文档 | 1 天 | 测试覆盖 + 用户文档 | Pending |
+| 4 | 端到端测试和文档 | 1 天 | 测试覆盖 + 用户文档 | **Planned** |
 
 **总工作量:** 4 开发日
 
@@ -193,27 +193,42 @@ Wave 2: 02-02 (WebhookReceiver - 依赖 02-01)
 ## Phase 4: 端到端测试和文档
 
 **优先级:** P1 (质量保障)
+**状态:** Planned
+**Plans:** 4 plans in 2 waves
 **Covers:** REQ-09, REQ-10
 
 ### Goal
 完成测试覆盖和用户文档，确保功能可用且用户能自助配置。
 
 ### Deliverables
-1. 单元测试：
-   - Challenge 请求测试
-   - 签名验证测试（正确/错误签名）
-   - 重复事件测试（相同 message_id）
-   - 队列满测试（返回 503）
-2. 健康检查端点 `/health`
-3. 可观测性：
-   - 记录 `event_id`, `message_id`
-   - 验签失败计数
-   - 处理耗时日志
-4. 使用 ngrok 进行真实飞书环境测试
-5. 更新 README：
+1. 单元测试补全：
+   - 成功路径测试（P2MessageReceiveV1 入队 + handler 调用）
+   - Bad request 测试（内部层 + HTTP 层）
+   - Config 验证测试
+2. 可观测性增强：
+   - 新增 `feishu_message_processing_duration_seconds` 指标
+   - 新增 `feishu_webhook_signature_failures_total` 指标
+   - 日志增强：`event_id=... message_id=... duration_ms=...`
+3. 文档更新：
    - Webhook 配置说明
-   - 飞书后台配置步骤截图
-   - 常见问题排查
+   - 飞书后台配置步骤
+   - 常见问题排查 (FAQ)
+   - ngrok 手动验收 runbook
+4. 轻量集成测试：
+   - SDK 契约保护（签名错误 -> 401）
+   - 使用 build tag 隔离
+
+### Plans
+- [ ] 04-01-PLAN.md — Test Gap Analysis + 基础单元测试补全 (Wave 1)
+- [ ] 04-02-PLAN.md — 可观测性增强 + 回归测试 (Wave 1)
+- [ ] 04-03-PLAN.md — 文档更新 (Wave 2)
+- [ ] 04-04-PLAN.md — 轻量集成测试 (Wave 2)
+
+### Wave Structure
+```
+Wave 1: 04-01 (单元测试), 04-02 (可观测性) — 并行
+Wave 2: 04-03 (文档), 04-04 (集成测试) — 并行，依赖 Wave 1
+```
 
 ### Verification
 - [ ] 所有测试通过
@@ -273,3 +288,4 @@ Milestone v1.1 完成标准:
 *Phase 2 complete: 2026-01-29*
 *Phase 3 planned: 2026-01-29*
 *Phase 3 complete: 2026-01-29*
+*Phase 4 planned: 2026-01-29*
