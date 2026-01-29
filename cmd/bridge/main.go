@@ -181,15 +181,20 @@ func cmdRun() {
 		cfg.Clawdbot.AgentID,
 	)
 
-	bridgeInstance := bridge.NewBridge(nil, clawdbotClient, cfg.Feishu.ThinkingThresholdMs)
+	// Declare bridgeInstance first to capture in handler closure
+	// This solves the circular dependency: feishu.Client needs handler, Bridge needs feishuClient
+	var bridgeInstance *bridge.Bridge
 
 	feishuClient := feishu.NewClient(
 		cfg.Feishu.AppID,
 		cfg.Feishu.AppSecret,
-		bridgeInstance.HandleMessage,
+		func(msg *feishu.Message) error {
+			return bridgeInstance.HandleMessage(msg)
+		},
 	)
 
-	bridgeInstance.SetFeishuClient(feishuClient)
+	// Create Bridge with feishuClient (no more post-construction injection needed)
+	bridgeInstance = bridge.NewBridge(feishuClient, clawdbotClient, cfg.Feishu.ThinkingThresholdMs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
