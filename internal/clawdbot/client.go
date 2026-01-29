@@ -27,13 +27,6 @@ func NewClient(port int, token, agentID string) *Client {
 	}
 }
 
-// Attachment represents a file attachment (e.g., image)
-// Format: { mimeType: "image/png", content: "<base64>" }
-type Attachment struct {
-	MimeType string `json:"mimeType"`  // e.g., "image/png"
-	Content  string `json:"content"`   // base64 encoded data
-}
-
 // Request represents a request to the gateway
 type Request struct {
 	Type   string      `json:"type"`
@@ -84,12 +77,11 @@ type AuthInfo struct {
 
 // AgentParams contains agent request parameters
 type AgentParams struct {
-	Message        string        `json:"message"`
-	AgentID        string        `json:"agentId"`
-	SessionKey     string        `json:"sessionKey"`
-	Deliver        bool          `json:"deliver"`
-	IdempotencyKey string        `json:"idempotencyKey"`
-	Attachments    []*Attachment `json:"attachments,omitempty"`
+	Message        string `json:"message"`
+	AgentID        string `json:"agentId"`
+	SessionKey     string `json:"sessionKey"`
+	Deliver        bool   `json:"deliver"`
+	IdempotencyKey string `json:"idempotencyKey"`
 }
 
 // AgentPayload contains the agent response payload
@@ -106,19 +98,14 @@ type EventPayload struct {
 
 // StreamData contains stream data
 type StreamData struct {
-	Text    string `json:"text,omitempty"`
-	Delta   string `json:"delta,omitempty"`
-	Phase   string `json:"phase,omitempty"`
+	Text  string `json:"text,omitempty"`
+	Delta string `json:"delta,omitempty"`
+	Phase string `json:"phase,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
 // AskClawdbot sends a message to ClawdBot and returns the response
 func (c *Client) AskClawdbot(text, sessionKey string) (string, error) {
-	return c.AskClawdbotWithAttachments(text, sessionKey, nil)
-}
-
-// AskClawdbotWithAttachments sends a message with attachments to ClawdBot
-func (c *Client) AskClawdbotWithAttachments(text, sessionKey string, attachments []*Attachment) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -201,7 +188,6 @@ func (c *Client) AskClawdbotWithAttachments(text, sessionKey string, attachments
 						SessionKey:     sessionKey,
 						Deliver:        false,
 						IdempotencyKey: uuid.New().String(),
-						Attachments:    attachments,
 					},
 				}
 

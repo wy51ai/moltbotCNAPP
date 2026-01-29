@@ -1,7 +1,6 @@
 package bridge
 
 import (
-	"encoding/base64"
 	"fmt"
 	"log"
 	"regexp"
@@ -104,48 +103,27 @@ func (b *Bridge) HandleMessage(msg *feishu.Message) error {
 	text = removeMentions(text)
 	text = strings.TrimSpace(text)
 
-	// Prepare attachments
-	var attachments []*clawdbot.Attachment
-
-	// Handle image messages
-	if msg.MsgType == "image" && len(msg.ImageData) > 0 {
-		// If it's just an image without text, add a default prompt
-		if text == "" || text == "[图片]" {
-			text = "请描述这张图片"
-		}
-
-		// Create image attachment
-		attachment := &clawdbot.Attachment{
-			MimeType: "image/png", // Feishu images are typically PNG
-			Content:  base64.StdEncoding.EncodeToString(msg.ImageData),
-		}
-		attachments = append(attachments, attachment)
-
-		log.Printf("[Bridge] Processing image message from %s (size: %d bytes)", msg.ChatID, len(msg.ImageData))
-	} else {
-		// Text message
-		if text == "" {
-			return nil
-		}
-		log.Printf("[Bridge] Processing message from %s: %s", msg.ChatID, text)
+	if text == "" {
+		return nil
 	}
 
 	// For group chats, check if we should respond
 	if msg.ChatType == "group" {
-		// Always respond to images
-		if msg.MsgType != "image" && !shouldRespondInGroup(text, msg.Mentions) {
+		if !shouldRespondInGroup(text, msg.Mentions) {
 			log.Printf("[Bridge] Skipping group message (no trigger): %s", text)
 			return nil
 		}
 	}
 
+	log.Printf("[Bridge] Processing message from %s: %s", msg.ChatID, text)
+
 	// Process asynchronously
-	go b.processMessageWithAttachments(msg.ChatID, text, attachments)
+	go b.processMessage(msg.ChatID, text)
 
 	return nil
 }
 
-func (b *Bridge) processMessageWithAttachments(chatID, text string, attachments []*clawdbot.Attachment) {
+func (b *Bridge) processMessage(chatID, text string) {
 	var placeholderID string
 	var done bool
 	var mu sync.Mutex
@@ -172,14 +150,7 @@ func (b *Bridge) processMessageWithAttachments(chatID, text string, attachments 
 
 	// Ask ClawdBot
 	sessionKey := fmt.Sprintf("feishu:%s", chatID)
-	var reply string
-	var err error
-
-	if len(attachments) > 0 {
-		reply, err = b.clawdbotClient.AskClawdbotWithAttachments(text, sessionKey, attachments)
-	} else {
-		reply, err = b.clawdbotClient.AskClawdbot(text, sessionKey)
-	}
+	reply, err := b.clawdbotClient.AskClawdbot(text, sessionKey)
 
 	// Mark as done
 	mu.Lock()
