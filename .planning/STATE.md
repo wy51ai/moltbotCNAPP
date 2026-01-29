@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 ## Current Position
 
 Phase: 4 of 4 (E2E Testing & Docs) - IN PROGRESS
-Plan: 2 of 2 in Phase 4
-Status: Completed 04-02 (Webhook Receiver Observability)
-Last activity: 2026-01-29 - Completed 04-02-PLAN.md
+Plan: 3 of 4 in Phase 4 (Wave 2)
+Status: Completed 04-03 (Webhook Mode Documentation)
+Last activity: 2026-01-29 - Completed 04-03-PLAN.md
 
-Progress: [████] 100% (Phase 4, Plan 2/2 complete)
+Progress: [████] 100% (Phase 4, Plan 3/4 complete)
 
 ## Session Continuity
 
-Last session: 2026-01-29T15:46:42Z
-Stopped at: Completed 04-02 (Webhook Receiver Observability)
+Last session: 2026-01-29T07:53:52Z
+Stopped at: Completed 04-03 (Webhook Mode Documentation)
 Resume file: None
 
 ## Accumulated Context
@@ -58,6 +58,7 @@ Resume file: None
 - 直接构造 SDK 事件对象测试内部逻辑，绕过 HTTP 层（04-01）
 - Handler 执行耗时与 HTTP 请求耗时分离为独立指标（04-02）
 - key=value 日志格式便于解析和查询（04-02）
+- 使用 event_id 而非 message_id 去重（防止重试丢消息）（04-03 文档化）
 
 ### Research Findings
 - SDK v3.5.3 完整支持 webhook 事件处理
@@ -84,6 +85,7 @@ Resume file: None
 | 03-01 | Config Mode | Mode switching between WebSocket/Webhook via config with validation | config.go, main.go |
 | 04-01 | Webhook Test Coverage | Unit tests: success path, bad request, config validation | webhook_receiver_test.go, config_test.go |
 | 04-02 | Webhook Observability | Handler execution duration, signature failure counter, key=value logging | webhook_receiver.go, webhook_receiver_test.go |
+| 04-03 | Webhook Mode Documentation | Webhook 配置文档、飞书后台配置、ngrok 验收、FAQ、监控指标 | README.md |
 
 ## Phase 1 Deliverables
 
@@ -124,5 +126,12 @@ Resume file: None
 - ✅ Enhanced key=value logging - event_id, message_id, duration_ms
 - ✅ Observability regression tests - TestWebhookReceiver_Observability
 
+### Plan 03: Webhook Mode Documentation (COMPLETE)
+- ✅ Webhook 配置章节 - 字段表格、JSON 示例、启动命令
+- ✅ 飞书后台配置指南 - 5 步骤（凭据、事件订阅、事件、权限、发布）
+- ✅ ngrok 本地验收指南 - 安装、使用、5 步验收流程
+- ✅ FAQ 4 个问答 - 启动报错、验证失败、无响应、event_id 去重原因
+- ✅ 监控指标表格 - 6 个 Prometheus 指标说明
+
 ---
-*State updated: 2026-01-29T15:46:42Z*
+*State updated: 2026-01-29T07:53:52Z*
