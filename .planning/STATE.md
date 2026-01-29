@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 ## Current Position
 
 Phase: 1 of 4 (Interface Abstraction)
-Plan: 1 of 1 in Phase 1
+Plan: 2 of 2 in Phase 1
 Status: Phase 1 Complete
-Last activity: 2026-01-29 — Completed 01-01-PLAN.md
+Last activity: 2026-01-29 — Completed 01-02-PLAN.md
 
 Progress: [█░░░] 25% (Phase 1/4 complete)
 
 ## Session Continuity
 
-Last session: 2026-01-29T02:59:15Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-01-29T03:02:56Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
 
 ## Accumulated Context
@@ -33,7 +33,8 @@ Resume file: None
 
 ### Execution Decisions (Phase 1)
 - escapeJSON 和 MessageHandler 移至独立模块（sender.go/receiver.go）避免重复声明
-- 保留 client.go 中的 SendMessage/UpdateMessage/DeleteMessage 方法供 WebSocket 模式使用
+- Client 内嵌 *RESTSender 而非持有独立的 *lark.Client（01-02）
+- client.go 重命名为 ws_receiver.go 以反映 WebSocket 接收器角色（01-02）
 
 ### Research Findings
 - SDK v3.5.3 完整支持 webhook 事件处理
@@ -47,11 +48,12 @@ Resume file: None
 ### Blockers
 (None)
 
-## Completed Phases
+## Completed Plans
 
 | Phase | Plan | Summary | Key Artifacts |
 |-------|------|---------|---------------|
 | 01-01 | Interface Abstraction | FeishuSender/FeishuReceiver 接口 | sender.go, receiver.go |
+| 01-02 | Client Refactoring | Client 内嵌 RESTSender，删除重复代码 | ws_receiver.go |
 
 ---
 *State updated: 2026-01-29*
