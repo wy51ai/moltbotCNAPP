@@ -201,7 +201,7 @@ func (wr *WebhookReceiver) handleMessageEvent(event *larkim.P2MessageReceiveV1) 
 
 	// Check dedupe cache
 	if _, exists := wr.dedupeCache.LoadOrStore(eventID, time.Now()); exists {
-		log.Printf("[Webhook] Duplicate event ignored: %s", eventID)
+		log.Printf("[Webhook] event=duplicate event_id=%s", eventID)
 		return nil
 	}
 
@@ -229,14 +229,15 @@ func (wr *WebhookReceiver) handleMessageEvent(event *larkim.P2MessageReceiveV1) 
 	if err := wr.workerPool.Submit(job); err != nil {
 		if errors.Is(err, ErrQueueFull) {
 			webhookRequestsTotal.WithLabelValues("rejected").Inc()
+			log.Printf("[Webhook] event=queue_full event_id=%s", eventID)
 		} else {
 			webhookRequestsTotal.WithLabelValues("error").Inc()
 		}
-		log.Printf("[Webhook] Queue full, event %s will be retried", eventID)
 		return err // Will be mapped to 503 in webhookHandler
 	}
 
 	webhookRequestsTotal.WithLabelValues("success").Inc()
+	log.Printf("[Webhook] event=enqueued event_id=%s message_id=%s", eventID, messageID)
 	return nil
 }
 
