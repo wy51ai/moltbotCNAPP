@@ -19,7 +19,7 @@
 
 | Phase | 名称 | 工作量 | 交付物 | 状态 |
 |-------|------|--------|--------|------|
-| 1 | 接口抽象和 REST 提取 | 1 天 | FeishuSender/Receiver 接口分离 | Pending |
+| 1 | 接口抽象和 REST 提取 | 1 天 | FeishuSender/Receiver 接口分离 | **Planning** |
 | 2 | Webhook Server (含安全) | 1.5 天 | HTTP 服务器 + 验签 + 解密 | Pending |
 | 3 | 配置扩展和模式切换 | 0.5 天 | 配置支持 + 启动逻辑 | Pending |
 | 4 | 端到端测试和文档 | 1 天 | 测试覆盖 + 用户文档 | Pending |
@@ -31,6 +31,8 @@
 ## Phase 1: 接口抽象和 REST 提取
 
 **优先级:** P0 (基础重构)
+**状态:** Planning
+**Plans:** 3 plans
 
 ### Goal
 采用方案 B 重构：将 Feishu 客户端拆分为 `FeishuSender`（发送）和 `FeishuReceiver`（接收）两个接口，Bridge 只依赖 Sender。
@@ -49,6 +51,11 @@
 4. 更新 `bridge.go`：
    - `feishuClient` 改为 `FeishuSender` 接口类型
    - 删除 `SetFeishuClient` 后置注入模式
+
+### Plans
+- [ ] 01-01-PLAN.md — 创建 FeishuSender/RESTSender 和 FeishuReceiver 接口
+- [ ] 01-02-PLAN.md — 重构 client.go 为 ws_receiver.go，内嵌 RESTSender
+- [ ] 01-03-PLAN.md — 更新 Bridge 使用接口，删除后置注入
 
 ### Verification
 - [ ] WebSocket 模式功能不受影响
@@ -233,3 +240,4 @@ Milestone v1.1 完成标准:
 ---
 *Roadmap created: 2026-01-29*
 *Codex reviewed: 2026-01-29*
+*Phase 1 planned: 2026-01-29*
