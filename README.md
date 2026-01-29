@@ -86,6 +86,38 @@ go build -o clawdbot-bridge ./cmd/bridge/
 tail -f ~/.clawdbot/bridge.log
 ```
 
+## 图片支持
+
+Bridge 支持接收飞书图片消息并转发给 ClawdBot。要启用图片功能，需要确保 ClawdBot 的模型配置声明了 `image` 输入支持。
+
+编辑 `~/.clawdbot/clawdbot.json`，在模型的 `input` 数组中添加 `"image"`：
+
+```json
+{
+  "models": {
+    "providers": {
+      "your-provider": {
+        "models": [
+          {
+            "id": "your-model-id",
+            "input": ["text", "image"],  // 确保包含 "image"
+            ...
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+或者使用 ClawdBot CLI 快速修复：
+
+```bash
+clawdbot config patch '{"models":{"providers":{"your-provider":{"models":[{"id":"your-model-id","input":["text","image"]}]}}}}'
+```
+
+> **注意**：如果 `input` 只有 `["text"]`，图片消息会被 ClawdBot 忽略，即使 Bridge 已成功下载并转发图片。
+
 ## 开发
 
 ```bash
