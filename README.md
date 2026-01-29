@@ -142,6 +142,51 @@ Webhook 模式适用于需要公网访问的生产环境，相比 WebSocket 模�
 
 启动后服务监听在 `http://0.0.0.0:8080/webhook/event`。
 
+### 飞书后台配置指南
+
+#### 步骤 1: 获取应用凭据
+
+1. 登录 [飞书开放平台](https://open.feishu.cn/app)
+2. 创建企业自建应用（或打开已有应用）
+3. 在「凭证与基础信息」页面获取：
+   - **App ID**（例如 `cli_xxx`）
+   - **App Secret**（点击查看完整值）
+
+#### 步骤 2: 配置事件订阅
+
+1. 进入「事件订阅」页面
+2. 配置请求地址：
+   - **请求地址 URL**：`https://your-domain.com/webhook/event`（开发环境可使用 ngrok 生成的 URL，见下方 ngrok 指南）
+   - **Verification Token**：复制该值，配置到 `bridge.json` 的 `verification_token` 字段
+   - **Encrypt Key**：复制该值，配置到 `bridge.json` 的 `encrypt_key` 字段
+
+3. 点击「验证」按钮，确保返回"验证成功"
+
+**注意**：必须先启动 bridge 服务，飞书才能验证 Webhook URL。
+
+#### 步骤 3: 添加事件订阅
+
+在「添加事件」中搜索并添加：
+
+- **im.message.receive_v1** - 接收消息（必须）
+
+#### 步骤 4: 配置权限
+
+在「权限管理」页面申请以下权限：
+
+- **im:message** - 获取与发送单聊、群组消息
+- **im:message.group_at_msg** - 获取群组中所有消息（用于 @机器人）
+- **im:message.group_at_msg:readonly** - 只读获取用户发给机器人的单聊消息
+- **im:message:send_as_bot** - 以应用身份发消息
+
+#### 步骤 5: 发布应用
+
+1. 在「版本管理与发布」页面创建版本
+2. 提交审核（企业自建应用通常秒过）
+3. 发布到企业
+
+**验证配置**：在飞书中搜索你的应用名称，发送消息，观察 bridge 日志是否收到事件。
+
 ## 开发
 
 ```bash
