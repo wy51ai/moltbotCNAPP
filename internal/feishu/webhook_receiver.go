@@ -14,10 +14,50 @@ import (
 	larkevent "github.com/larksuite/oapi-sdk-go/v3/event"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // ErrBadRequest is returned when the request payload is invalid
 var ErrBadRequest = errors.New("bad request")
+
+// Prometheus metrics for webhook receiver
+var (
+	webhookRequestsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "feishu_webhook_requests_total",
+			Help: "Total number of webhook requests by status",
+		},
+		[]string{"status"},
+	)
+	webhookRequestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "feishu_webhook_request_duration_seconds",
+			Help:    "Histogram of webhook request durations",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"endpoint"},
+	)
+	workerQueueDepth = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "feishu_worker_queue_depth",
+			Help: "Current number of jobs waiting in the worker queue",
+		},
+	)
+	workerQueueCapacity = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "feishu_worker_queue_capacity",
+			Help: "Maximum capacity of the worker queue",
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(webhookRequestsTotal)
+	prometheus.MustRegister(webhookRequestDuration)
+	prometheus.MustRegister(workerQueueDepth)
+	prometheus.MustRegister(workerQueueCapacity)
+}
 
 // WebhookConfig defines configuration for the webhook receiver
 type WebhookConfig struct {
@@ -67,6 +107,9 @@ func NewWebhookReceiver(config WebhookConfig, handler MessageHandler) *WebhookRe
 		config.QueueSize = 100
 	}
 
+	// Set queue capacity metric
+	workerQueueCapacity.Set(float64(config.QueueSize))
+
 	return &WebhookReceiver{
 		config:     config,
 		handler:    handler,
@@ -83,6 +126,9 @@ func (wr *WebhookReceiver) Start(ctx context.Context) error {
 	// Start dedupe cache cleanup goroutine
 	go wr.cleanupDedupeCache(ctx)
 
+	// Start queue depth metrics updater
+	go wr.updateQueueDepthMetrics(ctx)
+
 	// Create SDK EventDispatcher with VerificationToken and EncryptKey
 	// SDK automatically handles challenge verification and message decryption
 	wr.dispatcher = dispatcher.NewEventDispatcher(
@@ -95,6 +141,8 @@ func (wr *WebhookReceiver) Start(ctx context.Context) error {
 	// Create HTTP mux with custom handler for proper error code mapping
 	mux := http.NewServeMux()
 	mux.HandleFunc(wr.config.Path, wr.webhookHandler)
+	mux.HandleFunc("/health", wr.healthHandler)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	// Configure HTTP server with timeouts
 	wr.server = &http.Server{
@@ -109,7 +157,7 @@ func (wr *WebhookReceiver) Start(ctx context.Context) error {
 	// Start graceful shutdown goroutine
 	go wr.gracefulShutdown(ctx)
 
-	log.Printf("[Webhook] Starting server on :%d%s (workers=%d, queue=%d)",
+	log.Printf("[Webhook] Starting server on :%d (webhook=%s, health=/health, metrics=/metrics, workers=%d, queue=%d)",
 		wr.config.Port, wr.config.Path, wr.config.Workers, wr.config.QueueSize)
 
 	// Start HTTP server (blocks)
@@ -155,16 +203,28 @@ func (wr *WebhookReceiver) handleMessageEvent(event *larkim.P2MessageReceiveV1) 
 
 	// Submit to worker pool
 	if err := wr.workerPool.Submit(job); err != nil {
+		if errors.Is(err, ErrQueueFull) {
+			webhookRequestsTotal.WithLabelValues("rejected").Inc()
+		} else {
+			webhookRequestsTotal.WithLabelValues("error").Inc()
+		}
 		log.Printf("[Webhook] Queue full, event %s will be retried", eventID)
 		return err // Will be mapped to 503 in webhookHandler
 	}
 
+	webhookRequestsTotal.WithLabelValues("success").Inc()
 	return nil
 }
 
 // webhookHandler is the HTTP handler that implements custom error code mapping.
 // It does NOT use httpserverext for full control over response codes.
 func (wr *WebhookReceiver) webhookHandler(w http.ResponseWriter, r *http.Request) {
+	// Record request duration
+	start := time.Now()
+	defer func() {
+		webhookRequestDuration.WithLabelValues("webhook").Observe(time.Since(start).Seconds())
+	}()
+
 	// Method check
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -373,6 +433,37 @@ func (wr *WebhookReceiver) cleanupDedupeCache(ctx context.Context) {
 				}
 				return true
 			})
+		}
+	}
+}
+
+// healthHandler returns the health status of the webhook receiver
+func (wr *WebhookReceiver) healthHandler(w http.ResponseWriter, r *http.Request) {
+	queueDepth := wr.workerPool.QueueLen()
+	queueCapacity := wr.config.QueueSize
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	resp := map[string]interface{}{
+		"status":         "ok",
+		"queue_depth":    queueDepth,
+		"queue_capacity": queueCapacity,
+	}
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// updateQueueDepthMetrics periodically updates the queue depth gauge
+func (wr *WebhookReceiver) updateQueueDepthMetrics(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			workerQueueDepth.Set(float64(wr.workerPool.QueueLen()))
 		}
 	}
 }
