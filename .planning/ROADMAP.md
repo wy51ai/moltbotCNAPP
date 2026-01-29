@@ -22,7 +22,7 @@
 | 1 | 接口抽象和 REST 提取 | 1 天 | FeishuSender/Receiver 接口分离 | **Complete** |
 | 2 | Webhook Server (含安全) | 1.5 天 | HTTP 服务器 + 验签 + 解密 | **Complete** |
 | 3 | 配置扩展和模式切换 | 0.5 天 | 配置支持 + 启动逻辑 | **Complete** |
-| 4 | 端到端测试和文档 | 1 天 | 测试覆盖 + 用户文档 | **Planned** |
+| 4 | 端到端测试和文档 | 1 天 | 测试覆盖 + 用户文档 | **Complete** |
 
 **总工作量:** 4 开发日
 
@@ -193,8 +193,9 @@ Wave 2: 02-02 (WebhookReceiver - 依赖 02-01)
 ## Phase 4: 端到端测试和文档
 
 **优先级:** P1 (质量保障)
-**状态:** Planned
+**状态:** Complete
 **Plans:** 4 plans in 2 waves
+**Completed:** 2026-01-29
 **Covers:** REQ-09, REQ-10
 
 ### Goal
@@ -219,10 +220,10 @@ Wave 2: 02-02 (WebhookReceiver - 依赖 02-01)
    - 使用 build tag 隔离
 
 ### Plans
-- [ ] 04-01-PLAN.md — Test Gap Analysis + 基础单元测试补全 (Wave 1)
-- [ ] 04-02-PLAN.md — 可观测性增强 + 回归测试 (Wave 1)
-- [ ] 04-03-PLAN.md — 文档更新 (Wave 2)
-- [ ] 04-04-PLAN.md — 轻量集成测试 (Wave 2)
+- [x] 04-01-PLAN.md — Test Gap Analysis + 基础单元测试补全 (Wave 1)
+- [x] 04-02-PLAN.md — 可观测性增强 + 回归测试 (Wave 1)
+- [x] 04-03-PLAN.md — 文档更新 (Wave 2)
+- [x] 04-04-PLAN.md — 轻量集成测试 (Wave 2)
 
 ### Wave Structure
 ```
@@ -231,9 +232,9 @@ Wave 2: 04-03 (文档), 04-04 (集成测试) — 并行，依赖 Wave 1
 ```
 
 ### Verification
-- [ ] 所有测试通过
-- [ ] 真实飞书应用可正常收发消息
-- [ ] 文档可供用户自助配置
+- [x] 所有测试通过
+- [ ] 真实飞书应用可正常收发消息 (人工验收)
+- [x] 文档可供用户自助配置
 
 ### Pitfall Avoidance
 - 陷阱 2 (重复处理): 测试重试场景
@@ -289,3 +290,4 @@ Milestone v1.1 完成标准:
 *Phase 3 planned: 2026-01-29*
 *Phase 3 complete: 2026-01-29*
 *Phase 4 planned: 2026-01-29*
+*Phase 4 complete: 2026-01-29*
