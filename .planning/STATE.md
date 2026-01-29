@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 
 ## Current Position
 
-Phase: 4 of 4 (E2E Testing & Docs) - IN PROGRESS
-Plan: 3 of 4 in Phase 4 (Wave 2)
-Status: Completed 04-03 (Webhook Mode Documentation)
-Last activity: 2026-01-29 - Completed 04-03-PLAN.md
+Phase: 4 of 4 (E2E Testing & Docs) - COMPLETE
+Plan: 4 of 4 in Phase 4
+Status: Completed 04-04 (SDK Contract Protection Integration Tests)
+Last activity: 2026-01-29 - Completed 04-04-PLAN.md
 
-Progress: [████] 100% (Phase 4, Plan 3/4 complete)
+Progress: [████] 100% (Phase 4 complete - all 4 plans delivered)
 
 ## Session Continuity
 
-Last session: 2026-01-29T07:53:52Z
-Stopped at: Completed 04-03 (Webhook Mode Documentation)
+Last session: 2026-01-29T07:53:41Z
+Stopped at: Completed 04-04 (SDK Contract Protection Integration Tests)
 Resume file: None
 
 ## Accumulated Context
@@ -59,6 +59,8 @@ Resume file: None
 - Handler 执行耗时与 HTTP 请求耗时分离为独立指标（04-02）
 - key=value 日志格式便于解析和查询（04-02）
 - 使用 event_id 而非 message_id 去重（防止重试丢消息）（04-03 文档化）
+- Challenge validation 测试 SDK 认证契约（比完整签名测试更简单可靠）（04-04）
+- Build tag //go:build integration 隔离集成测试（默认不运行）（04-04）
 
 ### Research Findings
 - SDK v3.5.3 完整支持 webhook 事件处理
@@ -86,6 +88,7 @@ Resume file: None
 | 04-01 | Webhook Test Coverage | Unit tests: success path, bad request, config validation | webhook_receiver_test.go, config_test.go |
 | 04-02 | Webhook Observability | Handler execution duration, signature failure counter, key=value logging | webhook_receiver.go, webhook_receiver_test.go |
 | 04-03 | Webhook Mode Documentation | Webhook 配置文档、飞书后台配置、ngrok 验收、FAQ、监控指标 | README.md |
+| 04-04 | SDK Contract Protection | Challenge validation integration test with build tag isolation | test/integration/webhook_test.go |
 
 ## Phase 1 Deliverables
 
@@ -133,5 +136,12 @@ Resume file: None
 - ✅ FAQ 4 个问答 - 启动报错、验证失败、无响应、event_id 去重原因
 - ✅ 监控指标表格 - 6 个 Prometheus 指标说明
 
+### Plan 04: SDK Contract Protection Integration Tests (COMPLETE)
+- ✅ Integration test directory - test/integration/
+- ✅ Build tag isolation - //go:build integration
+- ✅ Challenge validation contract - invalid token returns 401, valid token returns 200
+- ✅ Integration tests pass with -tags=integration
+
 ---
-*State updated: 2026-01-29T07:53:52Z*
+*State updated: 2026-01-29T07:53:41Z*
+*Phase 4 COMPLETE - Milestone v1.1 delivered*
