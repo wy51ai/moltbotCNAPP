@@ -8,9 +8,11 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	larkevent "github.com/larksuite/oapi-sdk-go/v3/event"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 )
@@ -302,6 +304,89 @@ func TestWebhookReceiver_ConvertEventToMessage(t *testing.T) {
 	// Note: Full event conversion testing would require constructing
 	// SDK event structs which is complex. The logic mirrors ws_receiver.go
 	// which is already tested in production.
+}
+
+// TestWebhookReceiver_SuccessPath tests the success path where a valid event is processed
+func TestWebhookReceiver_SuccessPath(t *testing.T) {
+	var handlerCalled atomic.Int32
+	var receivedMsg *Message
+	var mu sync.Mutex
+
+	// Create receiver with handler that records the call
+	wr := NewWebhookReceiver(WebhookConfig{
+		VerificationToken: "test_verification_token",
+		EncryptKey:        "test_encrypt_key_1234",
+		Workers:           1,
+		QueueSize:         10,
+	}, func(msg *Message) error {
+		mu.Lock()
+		defer mu.Unlock()
+		handlerCalled.Add(1)
+		receivedMsg = msg
+		return nil
+	})
+
+	// Start worker pool
+	wr.workerPool.Start()
+	defer wr.workerPool.Shutdown(time.Second)
+
+	// Construct P2MessageReceiveV1 event
+	event := &larkim.P2MessageReceiveV1{
+		EventV2Base: &larkevent.EventV2Base{
+			Header: &larkevent.EventHeader{
+				EventID: "test-success-event-123",
+			},
+		},
+		Event: &larkim.P2MessageReceiveV1Data{
+			Message: &larkim.EventMessage{
+				MessageId:   ptrStr("msg_id_123"),
+				ChatId:      ptrStr("chat_id_123"),
+				ChatType:    ptrStr("group"),
+				MessageType: ptrStr("text"),
+				Content:     ptrStr(`{"text":"hello world"}`),
+			},
+		},
+	}
+
+	// Call handleMessageEvent directly
+	err := wr.handleMessageEvent(event)
+
+	// Verify no error returned
+	if err != nil {
+		t.Errorf("handleMessageEvent returned error: %v", err)
+	}
+
+	// Wait for async processing
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify handler was called
+	if handlerCalled.Load() != 1 {
+		t.Errorf("expected handler to be called once, got %d", handlerCalled.Load())
+	}
+
+	// Verify message fields
+	mu.Lock()
+	defer mu.Unlock()
+	if receivedMsg == nil {
+		t.Fatal("received message is nil")
+	}
+	if receivedMsg.MessageID != "msg_id_123" {
+		t.Errorf("expected MessageID 'msg_id_123', got '%s'", receivedMsg.MessageID)
+	}
+	if receivedMsg.ChatID != "chat_id_123" {
+		t.Errorf("expected ChatID 'chat_id_123', got '%s'", receivedMsg.ChatID)
+	}
+	if receivedMsg.ChatType != "group" {
+		t.Errorf("expected ChatType 'group', got '%s'", receivedMsg.ChatType)
+	}
+	if receivedMsg.Content != "hello world" {
+		t.Errorf("expected Content 'hello world', got '%s'", receivedMsg.Content)
+	}
+}
+
+// ptrStr is a helper function to create string pointer
+func ptrStr(s string) *string {
+	return &s
 }
 
 // Helper function to create a test WebhookReceiver with initialized dispatcher
