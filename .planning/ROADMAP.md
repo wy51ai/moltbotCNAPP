@@ -19,9 +19,9 @@
 
 | Phase | 名称 | 工作量 | 交付物 | 状态 |
 |-------|------|--------|--------|------|
-| 1 | 接口抽象和 REST 提取 | 1 天 | FeishuSender/Receiver 接口分离 | **Complete** ✓ |
-| 2 | Webhook Server (含安全) | 1.5 天 | HTTP 服务器 + 验签 + 解密 | **Complete** ✓ |
-| 3 | 配置扩展和模式切换 | 0.5 天 | 配置支持 + 启动逻辑 | Pending |
+| 1 | 接口抽象和 REST 提取 | 1 天 | FeishuSender/Receiver 接口分离 | **Complete** |
+| 2 | Webhook Server (含安全) | 1.5 天 | HTTP 服务器 + 验签 + 解密 | **Complete** |
+| 3 | 配置扩展和模式切换 | 0.5 天 | 配置支持 + 启动逻辑 | **Planned** |
 | 4 | 端到端测试和文档 | 1 天 | 测试覆盖 + 用户文档 | Pending |
 
 **总工作量:** 4 开发日
@@ -31,7 +31,7 @@
 ## Phase 1: 接口抽象和 REST 提取
 
 **优先级:** P0 (基础重构)
-**状态:** Complete ✓
+**状态:** Complete
 **Plans:** 3 plans
 **Completed:** 2026-01-29
 
@@ -71,7 +71,7 @@
 ## Phase 2: Webhook Server (含安全)
 
 **优先级:** P0 (核心功能 + 安全)
-**状态:** Complete ✓
+**状态:** Complete
 **Plans:** 3 plans in 3 waves
 **Completed:** 2026-01-29
 **Covers:** REQ-01, REQ-02, REQ-03, REQ-07, REQ-08
@@ -145,6 +145,8 @@ Wave 2: 02-02 (WebhookReceiver - 依赖 02-01)
 ## Phase 3: 配置扩展和模式切换
 
 **优先级:** P0 (用户体验)
+**状态:** Planned
+**Plans:** 1 plan
 **Covers:** REQ-04, REQ-05, REQ-06
 
 ### Goal
@@ -160,7 +162,7 @@ Wave 2: 02-02 (WebhookReceiver - 依赖 02-01)
    }
 
    type WebhookConfig struct {
-       Port              int    `json:"port"`               // 默认 8080
+       Port              int    `json:"port"`               // 默认 9090
        Path              string `json:"path"`               // 默认 "/webhook/feishu"
        VerificationToken string `json:"verification_token"` // 强制
        EncryptKey        string `json:"encrypt_key"`        // 强制
@@ -173,6 +175,9 @@ Wave 2: 02-02 (WebhookReceiver - 依赖 02-01)
    - 错误信息指向配置路径：`~/.clawdbot/bridge.json: webhook.verification_token`
 3. 在 `main.go` 实现 `switch cfg.Mode` 逻辑
 4. 默认值处理：mode 默认 "websocket"
+
+### Plans
+- [ ] 03-01-PLAN.md — 配置结构扩展和模式切换实现
 
 ### Verification
 - [ ] 配置 `mode: "webhook"` 启动 Webhook 模式
@@ -223,12 +228,12 @@ Wave 2: 02-02 (WebhookReceiver - 依赖 02-01)
 
 ```
 Phase 1 (接口抽象)
-    ↓
-Phase 2 (Webhook Server + 安全) ← 依赖 Phase 1 的接口
-    ↓
-Phase 3 (配置模式) ← 依赖 Phase 1-2 的所有组件
-    ↓
-Phase 4 (测试文档) ← 可与 Phase 3 部分并行
+    |
+Phase 2 (Webhook Server + 安全) <- 依赖 Phase 1 的接口
+    |
+Phase 3 (配置模式) <- 依赖 Phase 1-2 的所有组件
+    |
+Phase 4 (测试文档) <- 可与 Phase 3 部分并行
 ```
 
 ---
@@ -265,3 +270,4 @@ Milestone v1.1 完成标准:
 *Phase 1 complete: 2026-01-29*
 *Phase 2 planned: 2026-01-29*
 *Phase 2 complete: 2026-01-29*
+*Phase 3 planned: 2026-01-29*
