@@ -2,8 +2,10 @@ package feishu
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
@@ -22,6 +24,9 @@ type Message struct {
 	ChatID      string
 	ChatType    string
 	Content     string
+	MsgType     string    // "text", "image", etc.
+	ImageKey    string    // For image messages
+	ImageData   []byte    // Downloaded image data
 	Mentions    []Mention
 }
 
@@ -76,30 +81,18 @@ func (c *Client) Start(ctx context.Context) error {
 func (c *Client) handleMessage(ctx context.Context, event *larkim.P2MessageReceiveV1) error {
 	msg := event.Event.Message
 
-	// Only handle text messages
-	if msg.MessageType == nil || *msg.MessageType != "text" {
+	if msg.MessageType == nil || msg.Content == nil {
 		return nil
 	}
 
-	if msg.Content == nil {
-		return nil
-	}
+	msgType := *msg.MessageType
 
-	// Parse message content
-	var content struct {
-		Text string `json:"text"`
-	}
-	if err := json.Unmarshal([]byte(*msg.Content), &content); err != nil {
-		log.Printf("[Feishu] Failed to parse message content: %v", err)
-		return nil
-	}
-
-	// Build message
+	// Build base message
 	message := &Message{
 		MessageID: getStringValue(msg.MessageId),
 		ChatID:    getStringValue(msg.ChatId),
 		ChatType:  getStringValue(msg.ChatType),
-		Content:   content.Text,
+		MsgType:   msgType,
 	}
 
 	// Parse mentions
@@ -118,12 +111,88 @@ func (c *Client) handleMessage(ctx context.Context, event *larkim.P2MessageRecei
 		}
 	}
 
+	// Handle different message types
+	switch msgType {
+	case "text":
+		var content struct {
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal([]byte(*msg.Content), &content); err != nil {
+			log.Printf("[Feishu] Failed to parse text content: %v", err)
+			return nil
+		}
+		message.Content = content.Text
+
+	case "image":
+		var content struct {
+			ImageKey string `json:"image_key"`
+		}
+		log.Printf("[Feishu] Raw image content: %s", *msg.Content)
+		if err := json.Unmarshal([]byte(*msg.Content), &content); err != nil {
+			log.Printf("[Feishu] Failed to parse image content: %v", err)
+			return nil
+		}
+		log.Printf("[Feishu] Parsed image_key: %s", content.ImageKey)
+		message.ImageKey = content.ImageKey
+		
+		// Download image using message_id and image_key
+		imageData, err := c.DownloadImage(message.MessageID, content.ImageKey)
+		if err != nil {
+			log.Printf("[Feishu] Failed to download image: %v", err)
+			// Continue without image data, just log the error
+			message.Content = "[图片下载失败]"
+		} else {
+			message.ImageData = imageData
+			message.Content = "[图片]"
+			log.Printf("[Feishu] Downloaded image: %d bytes", len(imageData))
+		}
+
+	default:
+		// Unsupported message type, skip
+		log.Printf("[Feishu] Skipping unsupported message type: %s", msgType)
+		return nil
+	}
+
 	// Call handler
 	if c.handler != nil {
 		return c.handler(message)
 	}
 
 	return nil
+}
+
+// DownloadImage downloads an image using message_id and image_key
+func (c *Client) DownloadImage(messageID, imageKey string) ([]byte, error) {
+	log.Printf("[Feishu] Downloading image: messageID=%s, imageKey=%s", messageID, imageKey)
+	
+	// Try using MessageResource API with image_key as file_key
+	req := larkim.NewGetMessageResourceReqBuilder().
+		MessageId(messageID).
+		FileKey(imageKey).
+		Type("image").
+		Build()
+
+	resp, err := c.client.Im.MessageResource.Get(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get image: %w", err)
+	}
+
+	if !resp.Success() {
+		return nil, fmt.Errorf("failed to get image: %s", resp.Msg)
+	}
+
+	// Read the image data
+	data, err := io.ReadAll(resp.File)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read image data: %w", err)
+	}
+
+	return data, nil
+}
+
+// GetImageBase64 returns the base64 encoded image data
+func (c *Client) GetImageBase64(imageData []byte) string {
+	return base64.StdEncoding.EncodeToString(imageData)
 }
 
 // SendMessage sends a text message to a chat
