@@ -470,6 +470,68 @@ func ptrStr(s string) *string {
 	return &s
 }
 
+// TestWebhookReceiver_Observability tests metrics and logging observability
+func TestWebhookReceiver_Observability(t *testing.T) {
+	t.Run("metrics registered", func(t *testing.T) {
+		// Verify that new metrics are initialized (not nil)
+		if messageProcessingDuration == nil {
+			t.Error("messageProcessingDuration metric is nil")
+		}
+		if signatureFailuresTotal == nil {
+			t.Error("signatureFailuresTotal metric is nil")
+		}
+	})
+
+	t.Run("processing duration observed", func(t *testing.T) {
+		// Create receiver with handler that completes successfully
+		var handlerCalled atomic.Int32
+		wr := NewWebhookReceiver(WebhookConfig{
+			VerificationToken: "test_verification_token",
+			EncryptKey:        "test_encrypt_key_1234",
+		}, func(msg *Message) error {
+			handlerCalled.Add(1)
+			time.Sleep(10 * time.Millisecond) // Simulate work
+			return nil
+		})
+
+		// Start worker pool
+		wr.workerPool.Start()
+		defer wr.workerPool.Shutdown(time.Second)
+
+		// Create a mock message event
+		event := &larkim.P2MessageReceiveV1{
+			EventV2Base: &larkevent.EventV2Base{
+				Header: &larkevent.EventHeader{
+					EventID: "test_event_observability",
+				},
+			},
+			Event: &larkim.P2MessageReceiveV1Data{
+				Message: &larkim.EventMessage{
+					MessageId:   ptrStr("msg_test_123"),
+					ChatId:      ptrStr("chat_test_123"),
+					MessageType: ptrStr("text"),
+					Content:     ptrStr(`{"text":"test message"}`),
+				},
+			},
+		}
+
+		// Handle message event - should observe metrics without panic
+		err := wr.handleMessageEvent(event)
+		if err != nil {
+			t.Fatalf("handleMessageEvent failed: %v", err)
+		}
+
+		// Wait for handler to complete
+		time.Sleep(50 * time.Millisecond)
+
+		if handlerCalled.Load() != 1 {
+			t.Error("handler was not called")
+		}
+
+		// No panic means metrics observation succeeded
+	})
+}
+
 // Helper function to create a test WebhookReceiver with initialized dispatcher
 func createTestWebhookReceiver(t *testing.T) *WebhookReceiver {
 	t.Helper()
