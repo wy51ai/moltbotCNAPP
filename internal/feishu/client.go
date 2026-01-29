@@ -3,25 +3,21 @@ package feishu
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 
-	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
-	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
+	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 )
-
-// MessageHandler is defined in receiver.go
 
 // Message represents a received message
 type Message struct {
-	MessageID   string
-	ChatID      string
-	ChatType    string
-	Content     string
-	Mentions    []Mention
+	MessageID string
+	ChatID    string
+	ChatType  string
+	Content   string
+	Mentions  []Mention
 }
 
 // Mention represents a user mention
@@ -32,26 +28,26 @@ type Mention struct {
 	TenantKey string
 }
 
-// Client is a Feishu WebSocket client
+// Client is a Feishu WebSocket client that implements both FeishuSender and FeishuReceiver
 type Client struct {
+	*RESTSender          // Embedded RESTSender provides SendMessage/UpdateMessage/DeleteMessage
 	appID     string
 	appSecret string
-	client    *lark.Client
 	wsClient  *larkws.Client
 	handler   MessageHandler
 }
 
-// NewClient creates a new Feishu client
-func NewClient(appID, appSecret string, handler MessageHandler) *Client {
-	client := lark.NewClient(appID, appSecret,
-		lark.WithLogLevel(larkcore.LogLevelInfo),
-	)
+// Interface compliance checks
+var _ FeishuSender = (*Client)(nil)
+var _ FeishuReceiver = (*Client)(nil)
 
+// NewClient creates a new Feishu WebSocket client
+func NewClient(appID, appSecret string, handler MessageHandler) *Client {
 	return &Client{
-		appID:     appID,
-		appSecret: appSecret,
-		client:    client,
-		handler:   handler,
+		RESTSender: NewRESTSender(appID, appSecret),
+		appID:      appID,
+		appSecret:  appSecret,
+		handler:    handler,
 	}
 }
 
@@ -125,74 +121,6 @@ func (c *Client) handleMessage(ctx context.Context, event *larkim.P2MessageRecei
 	return nil
 }
 
-// SendMessage sends a text message to a chat
-func (c *Client) SendMessage(chatID, text string) (string, error) {
-	req := larkim.NewCreateMessageReqBuilder().
-		ReceiveIdType("chat_id").
-		Body(larkim.NewCreateMessageReqBodyBuilder().
-			ReceiveId(chatID).
-			MsgType("text").
-			Content(fmt.Sprintf(`{"text":"%s"}`, escapeJSON(text))).
-			Build()).
-		Build()
-
-	resp, err := c.client.Im.Message.Create(context.Background(), req)
-	if err != nil {
-		return "", fmt.Errorf("failed to send message: %w", err)
-	}
-
-	if !resp.Success() {
-		return "", fmt.Errorf("failed to send message: %s", resp.Msg)
-	}
-
-	messageID := ""
-	if resp.Data != nil && resp.Data.MessageId != nil {
-		messageID = *resp.Data.MessageId
-	}
-
-	return messageID, nil
-}
-
-// UpdateMessage updates an existing message
-func (c *Client) UpdateMessage(messageID, text string) error {
-	req := larkim.NewUpdateMessageReqBuilder().
-		MessageId(messageID).
-		Body(larkim.NewUpdateMessageReqBodyBuilder().
-			MsgType("text").
-			Content(fmt.Sprintf(`{"text":"%s"}`, escapeJSON(text))).
-			Build()).
-		Build()
-
-	resp, err := c.client.Im.Message.Update(context.Background(), req)
-	if err != nil {
-		return fmt.Errorf("failed to update message: %w", err)
-	}
-
-	if !resp.Success() {
-		return fmt.Errorf("failed to update message: %s", resp.Msg)
-	}
-
-	return nil
-}
-
-// DeleteMessage deletes a message
-func (c *Client) DeleteMessage(messageID string) error {
-	req := larkim.NewDeleteMessageReqBuilder().
-		MessageId(messageID).
-		Build()
-
-	resp, err := c.client.Im.Message.Delete(context.Background(), req)
-	if err != nil {
-		return fmt.Errorf("failed to delete message: %w", err)
-	}
-
-	if !resp.Success() {
-		return fmt.Errorf("failed to delete message: %s", resp.Msg)
-	}
-
-	return nil
-}
-
 // Helper functions
 
 func getStringValue(s *string) string {
@@ -201,5 +129,3 @@ func getStringValue(s *string) string {
 	}
 	return *s
 }
-
-// escapeJSON is defined in sender.go
