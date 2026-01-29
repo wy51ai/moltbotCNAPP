@@ -282,7 +282,7 @@ func findSubstring(s, substr string) bool {
 // convertEventToMessage converts a Feishu SDK message event to our Message type.
 // This mirrors the logic in ws_receiver.go handleMessage.
 func (wr *WebhookReceiver) convertEventToMessage(event *larkim.P2MessageReceiveV1) *Message {
-	if event.Event == nil || event.Event.Message == nil {
+	if event == nil || event.Event == nil || event.Event.Message == nil {
 		return &Message{}
 	}
 
