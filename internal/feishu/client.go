@@ -203,11 +203,4 @@ func getStringValue(s *string) string {
 	return *s
 }
 
-func escapeJSON(s string) string {
-	b, _ := json.Marshal(s)
-	// Remove surrounding quotes
-	if len(b) >= 2 && b[0] == '"' && b[len(b)-1] == '"' {
-		return string(b[1 : len(b)-1])
-	}
-	return string(b)
-}
+// escapeJSON is defined in sender.go
