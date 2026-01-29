@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 ## Current Position
 
 Phase: 2 of 4 (Webhook Server)
-Plan: 2 of 4 in Phase 2
-Status: In progress
-Last activity: 2026-01-29 - Completed 02-02-PLAN.md
+Plan: 3 of 3 in Phase 2 - COMPLETE
+Status: Phase 2 complete
+Last activity: 2026-01-29 - Completed 02-03-PLAN.md
 
-Progress: [███░] 44% (Phase 1 complete + 02-01 + 02-02)
+Progress: [████░] 56% (Phase 1 complete + Phase 2 complete)
 
 ## Session Continuity
 
-Last session: 2026-01-29T04:16:06Z
-Stopped at: Completed 02-02-PLAN.md (WebhookReceiver)
+Last session: 2026-01-29T04:30:00Z
+Stopped at: Completed 02-03-PLAN.md (Health/Metrics Endpoints)
 Resume file: None
 
 ## Accumulated Context
@@ -44,6 +44,8 @@ Resume file: None
 - Shutdown 有序关闭：写锁 -> closed=true -> close(channel) -> 解锁 -> 等待
 - 使用 SDK Handle 方法 + 响应体解析实现错误码映射（02-02）
 - Challenge 在 SDK dispatcher 之前单独处理（无需签名验证）（02-02）
+- 5秒 ticker 更新队列深度指标（平衡精度和开销）（02-03）
+- Prometheus default buckets 用于请求延迟直方图（02-03）
 
 ### Research Findings
 - SDK v3.5.3 完整支持 webhook 事件处理
@@ -66,6 +68,7 @@ Resume file: None
 | 01-03 | Bridge Integration | Bridge 依赖接口，闭包解决循环依赖 | bridge.go, main.go |
 | 02-01 | Worker Pool | WorkerPool with bounded queue, panic recovery, graceful shutdown | worker_pool.go, worker_pool_test.go |
 | 02-02 | WebhookReceiver | HTTP webhook receiver with SDK dispatcher, custom error code mapping | webhook_receiver.go, webhook_receiver_test.go |
+| 02-03 | Health/Metrics | Prometheus metrics, /health, /metrics endpoints | webhook_receiver.go, go.mod |
 
 ## Phase 1 Deliverables
 
@@ -75,12 +78,15 @@ Resume file: None
 - `Bridge` 依赖接口 (internal/bridge/bridge.go)
 - 无 SetFeishuClient，使用闭包模式 (cmd/bridge/main.go)
 
-## Phase 2 Deliverables (In Progress)
+## Phase 2 Deliverables (COMPLETE)
 
 - `WorkerPool` 并发控制 (internal/feishu/worker_pool.go) - DONE
 - `WebhookReceiver` HTTP 服务器 (internal/feishu/webhook_receiver.go) - DONE
-- Event 处理和去重 - TODO (02-03)
-- 集成测试 - TODO (02-04)
+- Event 处理和去重 (内置于 WebhookReceiver) - DONE
+- Prometheus 指标和健康端点 - DONE
+  - `/health` - JSON 状态响应
+  - `/metrics` - Prometheus 格式指标
+  - 指标：requests_total, request_duration, queue_depth, queue_capacity
 
 ---
-*State updated: 2026-01-29T04:16:06Z*
+*State updated: 2026-01-29T04:30:00Z*
