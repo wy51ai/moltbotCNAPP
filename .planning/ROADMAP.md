@@ -20,7 +20,7 @@
 | Phase | 名称 | 工作量 | 交付物 | 状态 |
 |-------|------|--------|--------|------|
 | 1 | 接口抽象和 REST 提取 | 1 天 | FeishuSender/Receiver 接口分离 | **Complete** ✓ |
-| 2 | Webhook Server (含安全) | 1.5 天 | HTTP 服务器 + 验签 + 解密 | **Planned** |
+| 2 | Webhook Server (含安全) | 1.5 天 | HTTP 服务器 + 验签 + 解密 | **Complete** ✓ |
 | 3 | 配置扩展和模式切换 | 0.5 天 | 配置支持 + 启动逻辑 | Pending |
 | 4 | 端到端测试和文档 | 1 天 | 测试覆盖 + 用户文档 | Pending |
 
@@ -71,8 +71,9 @@
 ## Phase 2: Webhook Server (含安全)
 
 **优先级:** P0 (核心功能 + 安全)
-**状态:** Planned
-**Plans:** 3 plans in 2 waves
+**状态:** Complete ✓
+**Plans:** 3 plans in 3 waves
+**Completed:** 2026-01-29
 **Covers:** REQ-01, REQ-02, REQ-03, REQ-07, REQ-08
 
 ### Goal
@@ -115,9 +116,9 @@
 2. `/metrics` 端点返回 Prometheus 格式指标
 
 ### Plans
-- [ ] 02-01-PLAN.md — Worker Pool 实现 (Wave 1)
-- [ ] 02-02-PLAN.md — WebhookReceiver 核心实现 (Wave 2)
-- [ ] 02-03-PLAN.md — Health/Metrics 端点 (Wave 2)
+- [x] 02-01-PLAN.md — Worker Pool 实现 (Wave 1)
+- [x] 02-02-PLAN.md — WebhookReceiver 核心实现 (Wave 2)
+- [x] 02-03-PLAN.md — Health/Metrics 端点 (Wave 3)
 
 ### Wave Structure
 ```
@@ -127,12 +128,12 @@ Wave 2: 02-02 (WebhookReceiver - 依赖 02-01)
 ```
 
 ### Verification
-- [ ] Challenge 请求返回正确响应
-- [ ] 正确签名的请求通过，错误签名返回 401
-- [ ] 加密消息正确解密
-- [ ] 响应时间 < 100ms
-- [ ] 队列满时返回 503
-- [ ] /health 和 /metrics 端点可用
+- [x] Challenge 请求返回正确响应
+- [x] 正确签名的请求通过，错误签名返回 401
+- [x] 加密消息正确解密
+- [x] 响应时间 < 100ms
+- [x] 队列满时返回 503
+- [x] /health 和 /metrics 端点可用
 
 ### Pitfall Avoidance
 - 陷阱 1 (响应超时): 立即返回 200，异步处理
@@ -263,3 +264,4 @@ Milestone v1.1 完成标准:
 *Phase 1 planned: 2026-01-29*
 *Phase 1 complete: 2026-01-29*
 *Phase 2 planned: 2026-01-29*
+*Phase 2 complete: 2026-01-29*
