@@ -34,3 +34,6 @@ Thumbs.db
 
 # Config with secrets (use config.yaml.example as template)
 config.yaml
+
+# Logs
+*.log

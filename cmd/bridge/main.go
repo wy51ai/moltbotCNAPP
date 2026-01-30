@@ -49,7 +49,9 @@ func main() {
 		}
 		cmdStart()
 	case "run":
-		applyConfigArgs(os.Args[2:])
+		if len(os.Args) > 2 {
+			applyConfigArgs(os.Args[2:])
+		}
 		cmdRun()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\nUsage:\n  clawdbot-bridge start [fs_app_id=xxx fs_app_secret=yyy]\n  clawdbot-bridge stop\n  clawdbot-bridge status\n  clawdbot-bridge restart\n  clawdbot-bridge run\n")

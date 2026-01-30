@@ -3,6 +3,7 @@ package clawdbot
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -12,10 +13,10 @@ import (
 
 // Client is a ClawdBot Gateway WebSocket client
 type Client struct {
-	port     int
-	token    string
-	agentID  string
-	mu       sync.Mutex
+	port    int
+	token   string
+	agentID string
+	mu      sync.Mutex
 }
 
 // NewClient creates a new ClawdBot Gateway client
@@ -52,14 +53,14 @@ type ErrorInfo struct {
 
 // ConnectParams contains connection parameters
 type ConnectParams struct {
-	MinProtocol int         `json:"minProtocol"`
-	MaxProtocol int         `json:"maxProtocol"`
-	Client      ClientInfo  `json:"client"`
-	Role        string      `json:"role"`
-	Scopes      []string    `json:"scopes"`
-	Auth        AuthInfo    `json:"auth"`
-	Locale      string      `json:"locale"`
-	UserAgent   string      `json:"userAgent"`
+	MinProtocol int        `json:"minProtocol"`
+	MaxProtocol int        `json:"maxProtocol"`
+	Client      ClientInfo `json:"client"`
+	Role        string     `json:"role"`
+	Scopes      []string   `json:"scopes"`
+	Auth        AuthInfo   `json:"auth"`
+	Locale      string     `json:"locale"`
+	UserAgent   string     `json:"userAgent"`
 }
 
 // ClientInfo contains client information
@@ -98,14 +99,14 @@ type EventPayload struct {
 
 // StreamData contains stream data
 type StreamData struct {
-	Text  string `json:"text,omitempty"`
-	Delta string `json:"delta,omitempty"`
-	Phase string `json:"phase,omitempty"`
+	Text    string `json:"text,omitempty"`
+	Delta   string `json:"delta,omitempty"`
+	Phase   string `json:"phase,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
 // AskClawdbot sends a message to ClawdBot and returns the response
-func (c *Client) AskClawdbot(text, sessionKey string) (string, error) {
+func (c *Client) AskClawdbot(text, sessionKey string, onProgress func(stream, data string)) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -129,10 +130,13 @@ func (c *Client) AskClawdbot(text, sessionKey string) (string, error) {
 				return
 			}
 
+			log.Printf("[Clawdbot] RECEIVED MESSAGE: %s", string(message))
+
 			var resp Response
 			if err := json.Unmarshal(message, &resp); err != nil {
 				continue
 			}
+			log.Printf("[Clawdbot] RECEIVED MESSAGE: type=%s, event=%s, id=%s", resp.Type, resp.Event, resp.ID)
 
 			// Step 1: Handle connect challenge
 			if resp.Type == "event" && resp.Event == "connect.challenge" {
@@ -150,7 +154,7 @@ func (c *Client) AskClawdbot(text, sessionKey string) (string, error) {
 							Mode:     "backend",
 						},
 						Role:   "operator",
-						Scopes: []string{"operator.read", "operator.write"},
+						Scopes: []string{"operator.read", "operator.write", "operator.admin"},
 						Auth: AuthInfo{
 							Token: c.token,
 						},
@@ -186,7 +190,7 @@ func (c *Client) AskClawdbot(text, sessionKey string) (string, error) {
 						Message:        text,
 						AgentID:        c.agentID,
 						SessionKey:     sessionKey,
-						Deliver:        false,
+						Deliver:        true,
 						IdempotencyKey: uuid.New().String(),
 					},
 				}
@@ -230,6 +234,10 @@ func (c *Client) AskClawdbot(text, sessionKey string) (string, error) {
 
 				// Handle assistant stream
 				if eventPayload.Stream == "assistant" {
+					if onProgress != nil {
+						// Non-blocking call
+						go onProgress("assistant", string(eventPayload.Data))
+					}
 					var streamData StreamData
 					if err := json.Unmarshal(eventPayload.Data, &streamData); err == nil {
 						if streamData.Text != "" {
@@ -237,6 +245,33 @@ func (c *Client) AskClawdbot(text, sessionKey string) (string, error) {
 						} else if streamData.Delta != "" {
 							buffer += streamData.Delta
 						}
+					}
+					continue
+				}
+
+				// Handle thought stream
+				if eventPayload.Stream == "thought" {
+					if onProgress != nil {
+						// Non-blocking call
+						go onProgress("thought", string(eventPayload.Data))
+					}
+					continue
+				}
+
+				// Handle tool_call stream
+				if eventPayload.Stream == "tool_call" {
+					if onProgress != nil {
+						// Non-blocking call
+						go onProgress("tool_call", string(eventPayload.Data))
+					}
+					continue
+				}
+
+				// Handle tool_result stream
+				if eventPayload.Stream == "tool_result" {
+					if onProgress != nil {
+						// Non-blocking call
+						go onProgress("tool_result", string(eventPayload.Data))
 					}
 					continue
 				}
@@ -269,7 +304,111 @@ func (c *Client) AskClawdbot(text, sessionKey string) (string, error) {
 		return result, nil
 	case err := <-errorChan:
 		return "", err
-	case <-time.After(5 * time.Minute):
+	case <-time.After(15 * time.Minute):
 		return "", fmt.Errorf("timeout waiting for response")
+	}
+}
+
+// ResetSession resets a session
+func (c *Client) ResetSession(sessionKey string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	url := fmt.Sprintf("ws://127.0.0.1:%d", c.port)
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to connect to gateway: %w", err)
+	}
+	defer conn.Close()
+
+	errorChan := make(chan error, 1)
+	doneChan := make(chan bool, 1)
+
+	go func() {
+		for {
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+
+			var resp Response
+			if err := json.Unmarshal(message, &resp); err != nil {
+				continue
+			}
+
+			if resp.Type == "event" && resp.Event == "connect.challenge" {
+				connectReq := Request{
+					Type:   "req",
+					ID:     "connect",
+					Method: "connect",
+					Params: ConnectParams{
+						MinProtocol: 3,
+						MaxProtocol: 3,
+						Client: ClientInfo{
+							ID:       "gateway-client",
+							Version:  "0.2.0",
+							Platform: "linux",
+							Mode:     "backend",
+						},
+						Role:   "operator",
+						Scopes: []string{"operator.read", "operator.write", "operator.admin"},
+						Auth: AuthInfo{
+							Token: c.token,
+						},
+						Locale:    "zh-CN",
+						UserAgent: "clawdbot-bridge-go",
+					},
+				}
+				if err := conn.WriteJSON(connectReq); err != nil {
+					errorChan <- fmt.Errorf("failed to send connect request: %w", err)
+					return
+				}
+				continue
+			}
+
+			if resp.Type == "res" && resp.ID == "connect" {
+				if !resp.OK {
+					errorChan <- fmt.Errorf("connect failed")
+					return
+				}
+
+				// Send reset request
+				resetReq := Request{
+					Type:   "req",
+					ID:     "reset",
+					Method: "sessions.reset",
+					Params: map[string]string{
+						"key": sessionKey,
+					},
+				}
+				if err := conn.WriteJSON(resetReq); err != nil {
+					errorChan <- fmt.Errorf("failed to send reset request: %w", err)
+					return
+				}
+				continue
+			}
+
+			if resp.Type == "res" && resp.ID == "reset" {
+				if !resp.OK {
+					errMsg := "reset failed"
+					if resp.Error != nil {
+						errMsg = resp.Error.Message
+					}
+					errorChan <- fmt.Errorf(errMsg)
+				} else {
+					doneChan <- true
+				}
+				return
+			}
+		}
+	}()
+
+	select {
+	case <-doneChan:
+		return nil
+	case err := <-errorChan:
+		return err
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("timeout waiting for reset")
 	}
 }

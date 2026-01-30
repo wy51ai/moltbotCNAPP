@@ -1,8 +1,10 @@
 package bridge
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"os/exec"
 	"regexp"
 	"strings"
 	"sync"
@@ -117,6 +119,34 @@ func (b *Bridge) HandleMessage(msg *feishu.Message) error {
 
 	log.Printf("[Bridge] Processing message from %s: %s", msg.ChatID, text)
 
+	// Handle reset command
+	if text == "重置" || text == "/reset" {
+		// 1. Reset Session Memory
+		sessionKey := fmt.Sprintf("feishu:%s", msg.ChatID)
+		resetErr := b.clawdbotClient.ResetSession(sessionKey)
+		if resetErr != nil {
+			log.Printf("[Bridge] Failed to reset session: %v", resetErr)
+		}
+
+		// 2. Restart Clawdbot Gateway
+		log.Printf("[Bridge] Restarting Clawdbot Gateway...")
+		cmd := exec.Command("clawdbot", "gateway", "restart")
+		// Ideally set Dir if needed, but default should work if clawdbot is in PATH
+		// cmd.Dir = "/home/pk/.clawdbot"
+		if output, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("[Bridge] Failed to restart gateway: %v, Output: %s", err, string(output))
+			b.feishuClient.SendMessage(msg.ChatID, fmt.Sprintf("会话重置失败 (Gateway重启错误): %v", err))
+		} else {
+			log.Printf("[Bridge] Gateway restarted successfully")
+			if resetErr != nil {
+				b.feishuClient.SendMessage(msg.ChatID, fmt.Sprintf("Gateway已重启，但会话清除失败: %v。请再试一次。", resetErr))
+			} else {
+				b.feishuClient.SendMessage(msg.ChatID, "会话已重置，Gateway已重启。您可以重新开始对话。")
+			}
+		}
+		return nil
+	}
+
 	// Process asynchronously
 	go b.processMessage(msg.ChatID, text)
 
@@ -127,30 +157,132 @@ func (b *Bridge) processMessage(chatID, text string) {
 	var placeholderID string
 	var done bool
 	var mu sync.Mutex
+	var lastUpdate time.Time
+	var currentResponse string
 
 	// Show "thinking..." if response takes too long
 	var timer *time.Timer
 	if b.thinkingMs > 0 {
 		timer = time.AfterFunc(time.Duration(b.thinkingMs)*time.Millisecond, func() {
 			mu.Lock()
-			defer mu.Unlock()
-
-			if done {
+			if done || placeholderID != "" {
+				mu.Unlock()
 				return
 			}
+			mu.Unlock()
 
 			msgID, err := b.feishuClient.SendMessage(chatID, "正在思考…")
+
+			mu.Lock()
+			defer mu.Unlock()
 			if err != nil {
 				log.Printf("[Bridge] Failed to send thinking message: %v", err)
 				return
 			}
-			placeholderID = msgID
+			// Check if done or placeholder set while we were sending
+			if !done && placeholderID == "" {
+				placeholderID = msgID
+			}
 		})
+	}
+
+	// Progress handler
+	onProgress := func(stream, data string) {
+		mu.Lock()
+
+		// Parse data for assistant stream to build response
+		if stream == "assistant" {
+			var sd clawdbot.StreamData
+			if err := json.Unmarshal([]byte(data), &sd); err == nil {
+				if sd.Text != "" {
+					currentResponse = sd.Text
+				} else if sd.Delta != "" {
+					currentResponse += sd.Delta
+				}
+			} else {
+				log.Printf("[Bridge] Failed to unmarshal stream data: %v. Data: %s", err, data)
+			}
+		}
+
+		// Update at most once per second
+		if done || time.Since(lastUpdate) < 1000*time.Millisecond {
+			mu.Unlock()
+			return
+		}
+		lastUpdate = time.Now()
+		pid := placeholderID
+		mu.Unlock()
+
+		var statusText string
+		switch stream {
+		case "assistant":
+			if currentResponse != "" {
+				statusText = currentResponse + " ▌"
+			} else {
+				statusText = "正在回复…"
+			}
+		case "thought":
+			statusText = "正在思考…"
+		case "tool_call":
+			log.Printf("[Bridge] Tool call data: %s", data)
+			var tc map[string]interface{}
+			if err := json.Unmarshal([]byte(data), &tc); err == nil {
+				if name, ok := tc["tool"].(string); ok {
+					statusText = fmt.Sprintf("正在使用工具: %s", name)
+				} else if name, ok := tc["name"].(string); ok {
+					statusText = fmt.Sprintf("正在使用工具: %s", name)
+				} else if function, ok := tc["function"].(map[string]interface{}); ok {
+					if name, ok := function["name"].(string); ok {
+						statusText = fmt.Sprintf("正在使用工具: %s", name)
+					}
+				} else {
+					statusText = "正在调用工具…"
+				}
+			} else {
+				statusText = "正在调用工具…"
+			}
+		case "tool_result":
+			log.Printf("[Bridge] Tool result data: %s", data)
+			var tr map[string]interface{}
+			if err := json.Unmarshal([]byte(data), &tr); err == nil {
+				if name, ok := tr["tool"].(string); ok {
+					statusText = fmt.Sprintf("工具 %s 调用完成，正在分析…", name)
+				} else if name, ok := tr["name"].(string); ok {
+					statusText = fmt.Sprintf("工具 %s 调用完成，正在分析…", name)
+				} else {
+					statusText = "工具调用完成，正在分析…"
+				}
+			} else {
+				statusText = "工具调用完成，正在分析…"
+			}
+		}
+
+		if statusText != "" {
+			if pid != "" {
+				if err := b.feishuClient.UpdateMessage(pid, statusText); err != nil {
+					log.Printf("[Bridge] Failed to update message %s: %v", pid, err)
+				}
+			} else {
+				// Create placeholder if not exists
+				mu.Lock()
+				if placeholderID == "" && !done {
+					mu.Unlock()
+					msgID, err := b.feishuClient.SendMessage(chatID, statusText)
+					mu.Lock()
+					if err == nil && placeholderID == "" {
+						placeholderID = msgID
+					}
+					mu.Unlock()
+				} else {
+					mu.Unlock()
+				}
+			}
+		}
 	}
 
 	// Ask ClawdBot
 	sessionKey := fmt.Sprintf("feishu:%s", chatID)
-	reply, err := b.clawdbotClient.AskClawdbot(text, sessionKey)
+	reply, err := b.clawdbotClient.AskClawdbot(text, sessionKey, onProgress)
 
 	// Mark as done
 	mu.Lock()
@@ -172,12 +304,19 @@ func (b *Bridge) processMessage(chatID, text string) {
 
 	// Check for NO_REPLY
 	if reply == "" || reply == "NO_REPLY" {
-		log.Printf("[Bridge] Received NO_REPLY, not sending message")
+		log.Printf("[Bridge] Received NO_REPLY, sending error message")
 
-		// Delete thinking placeholder if it exists
+		errorMsg := "（AI 服务未返回任何内容，请重试或检查后台日志）"
+
+		// Update placeholder if it exists
 		if placeholderID != "" {
-			if err := b.feishuClient.DeleteMessage(placeholderID); err != nil {
-				log.Printf("[Bridge] Failed to delete placeholder: %v", err)
+			if err := b.feishuClient.UpdateMessage(placeholderID, errorMsg); err != nil {
+				log.Printf("[Bridge] Failed to update placeholder with error: %v", err)
+			}
+		} else {
+			// Send new error message
+			if _, err := b.feishuClient.SendMessage(chatID, errorMsg); err != nil {
+				log.Printf("[Bridge] Failed to send error message: %v", err)
 			}
 		}
 		return
@@ -189,7 +328,7 @@ func (b *Bridge) processMessage(chatID, text string) {
 	mu.Unlock()
 
 	if currentPlaceholder != "" {
-		// Update existing "thinking..." message
+		// Update existing "thinking..." or streaming message with final reply
 		if err := b.feishuClient.UpdateMessage(currentPlaceholder, reply); err != nil {
 			log.Printf("[Bridge] Failed to update message, sending new: %v", err)
 			// Fall back to sending new message
