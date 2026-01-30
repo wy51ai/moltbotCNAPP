@@ -235,7 +235,7 @@ func readPID(pidPath string) (int, error) {
 	return strconv.Atoi(strings.TrimSpace(string(data)))
 }
 
-// applyConfigArgs parses key=value args and saves to ~/.clawdbot/bridge.json
+// applyConfigArgs parses key=value args and saves to bridge.json
 func applyConfigArgs(args []string) {
 	kv := parseKeyValue(args)
 	appID := kv["fs_app_id"]
@@ -250,7 +250,7 @@ func applyConfigArgs(args []string) {
 		log.Fatal(err)
 	}
 
-	// Read existing config if present
+	// Read existing config if present (try bridge.json first)
 	var cfg bridgeConfigJSON
 	if data, err := os.ReadFile(filepath.Join(dir, "bridge.json")); err == nil {
 		json.Unmarshal(data, &cfg)

@@ -47,41 +47,81 @@ type bridgeJSON struct {
 	AgentID             string `json:"agent_id"`
 }
 
-// Dir returns the ~/.clawdbot directory path
+// Dir returns the config directory path
+// Tries ~/.clawdbot first, falls back to ~/.openclaw
 func Dir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
-	return filepath.Join(home, ".clawdbot"), nil
+
+	// Priority order: .clawdbot, .openclaw
+	candidates := []string{
+		filepath.Join(home, ".clawdbot"),
+		filepath.Join(home, ".openclaw"),
+	}
+
+	// Return first existing directory, or default to .clawdbot
+	for _, dir := range candidates {
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			return dir, nil
+		}
+	}
+
+	// Default to .clawdbot if none exist
+	return candidates[0], nil
 }
 
-// Load reads configuration from ~/.clawdbot/ config files
+// findConfigFile searches for a config file with multiple possible names
+// Returns the first file found, or error if none exist
+func findConfigFile(dir string, candidates ...string) (string, error) {
+	for _, name := range candidates {
+		path := filepath.Join(dir, name)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	// Return error with all attempted paths
+	return "", fmt.Errorf("config file not found, tried: %v", candidates)
+}
+
+// Load reads configuration from config files
+// Supports both ~/.clawdbot/ and ~/.openclaw/ directories
+// Gateway config: clawdbot.json or openclaw.json
+// Bridge config: bridge.json
 func Load() (*Config, error) {
 	dir, err := Dir()
 	if err != nil {
 		return nil, err
 	}
 
-	// Read ~/.clawdbot/clawdbot.json for gateway config
-	gwData, err := os.ReadFile(filepath.Join(dir, "clawdbot.json"))
+	// Find gateway config file: clawdbot.json or openclaw.json
+	gwPath, err := findConfigFile(dir, "clawdbot.json", "openclaw.json")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read ~/.clawdbot/clawdbot.json: %w", err)
+		return nil, fmt.Errorf("failed to find gateway config (clawdbot.json or openclaw.json) in %s: %w", dir, err)
+	}
+	gwData, err := os.ReadFile(gwPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", gwPath, err)
 	}
 	var gwCfg clawdbotJSON
 	if err := json.Unmarshal(gwData, &gwCfg); err != nil {
-		return nil, fmt.Errorf("failed to parse ~/.clawdbot/clawdbot.json: %w", err)
+		return nil, fmt.Errorf("failed to parse %s: %w", gwPath, err)
 	}
 
-	// Read ~/.clawdbot/bridge.json for feishu/bridge config
-	brData, err := os.ReadFile(filepath.Join(dir, "bridge.json"))
+	// Find bridge config file: bridge.json
+	brPath, err := findConfigFile(dir, "bridge.json")
 	if err != nil {
 		return nil, fmt.Errorf(
-			"failed to read ~/.clawdbot/bridge.json: %w\n\nCreate it with:\n  {\n    \"feishu\": {\n      \"app_id\": \"cli_xxx\",\n      \"app_secret\": \"xxx\"\n    }\n  }", err)
+			"failed to find bridge.json in %s: %w\n\nCreate it with:\n  {\n    \"feishu\": {\n      \"app_id\": \"cli_xxx\",\n      \"app_secret\": \"xxx\"\n    }\n  }", dir, err)
+	}
+	brData, err := os.ReadFile(brPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", brPath, err)
 	}
 	var brCfg bridgeJSON
 	if err := json.Unmarshal(brData, &brCfg); err != nil {
-		return nil, fmt.Errorf("failed to parse ~/.clawdbot/bridge.json: %w", err)
+		return nil, fmt.Errorf("failed to parse %s: %w", brPath, err)
 	}
 
 	// Validate required fields
