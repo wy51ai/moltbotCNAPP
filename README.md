@@ -7,7 +7,7 @@
 
 ## 前置要求
 
-- ClawdBot Gateway 正在本地运行（默认端口 18789，配置在 `~/.clawdbot/clawdbot.json`）
+- ClawdBot Gateway 正在本地运行（默认端口 18789，配置在 `~/.clawdbot/clawdbot.json` 或者 `~/.openclaw/openclaw.json`）
 - 飞书企业自建应用的 App ID 和 App Secret
 
 ## 安装
