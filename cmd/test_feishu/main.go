@@ -8,9 +8,9 @@ import (
 )
 
 func main() {
-	appID := "cli_a9f3473a7bf95bc7"
-	appSecret := "bosLG8oAegRsSBOY4Vd8ceVL8z2EBMt6"
-	chatID := "oc_8bc6c818f0c048cbce7259dd6ee95ea4"
+	appID := "cli_PLACEHOLDER" // TODO: Use env var or config
+	appSecret := "SECRET_PLACEHOLDER" // TODO: Use env var or config
+	chatID := "oc_PLACEHOLDER"
 
 	client := feishu.NewClient(appID, appSecret, nil)
 
