@@ -14,7 +14,7 @@ import (
 
 // Bridge connects Feishu and ClawdBot
 type Bridge struct {
-	feishuClient   *feishu.Client
+	feishuClient   feishu.FeishuSender
 	clawdbotClient *clawdbot.Client
 	thinkingMs     int
 	seenMessages   *messageCache
@@ -71,18 +71,13 @@ func (mc *messageCache) cleanup() {
 }
 
 // NewBridge creates a new bridge
-func NewBridge(feishuClient *feishu.Client, clawdbotClient *clawdbot.Client, thinkingMs int) *Bridge {
+func NewBridge(feishuClient feishu.FeishuSender, clawdbotClient *clawdbot.Client, thinkingMs int) *Bridge {
 	return &Bridge{
 		feishuClient:   feishuClient,
 		clawdbotClient: clawdbotClient,
 		thinkingMs:     thinkingMs,
 		seenMessages:   newMessageCache(10 * time.Minute),
 	}
-}
-
-// SetFeishuClient sets the Feishu client after construction
-func (b *Bridge) SetFeishuClient(client *feishu.Client) {
-	b.feishuClient = client
 }
 
 // HandleMessage processes a message from Feishu
