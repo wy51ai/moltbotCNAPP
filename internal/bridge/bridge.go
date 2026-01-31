@@ -17,6 +17,8 @@ type Bridge struct {
 	feishuClient   *feishu.Client
 	clawdbotClient *clawdbot.Client
 	thinkingMs     int
+	allowUsers     map[string]bool
+	allowChats     map[string]bool
 	seenMessages   *messageCache
 }
 
@@ -71,11 +73,21 @@ func (mc *messageCache) cleanup() {
 }
 
 // NewBridge creates a new bridge
-func NewBridge(feishuClient *feishu.Client, clawdbotClient *clawdbot.Client, thinkingMs int) *Bridge {
+func NewBridge(feishuClient *feishu.Client, clawdbotClient *clawdbot.Client, thinkingMs int, allowUsers, allowChats []string) *Bridge {
+	au := make(map[string]bool, len(allowUsers))
+	for _, u := range allowUsers {
+		au[u] = true
+	}
+	ac := make(map[string]bool, len(allowChats))
+	for _, c := range allowChats {
+		ac[c] = true
+	}
 	return &Bridge{
 		feishuClient:   feishuClient,
 		clawdbotClient: clawdbotClient,
 		thinkingMs:     thinkingMs,
+		allowUsers:     au,
+		allowChats:     ac,
 		seenMessages:   newMessageCache(10 * time.Minute),
 	}
 }
@@ -98,6 +110,12 @@ func (b *Bridge) HandleMessage(msg *feishu.Message) error {
 		b.seenMessages.add(msg.MessageID)
 	}
 
+	// Check allowlist
+	if !b.isAllowed(msg) {
+		log.Printf("[Bridge] Blocked message from user=%s chat=%s (not in allowlist)", msg.SenderID, msg.ChatID)
+		return nil
+	}
+
 	// Clean up message text
 	text := msg.Content
 	text = removeMentions(text)
@@ -115,7 +133,7 @@ func (b *Bridge) HandleMessage(msg *feishu.Message) error {
 		}
 	}
 
-	log.Printf("[Bridge] Processing message from %s: %s", msg.ChatID, text)
+	log.Printf("[Bridge] Processing message from chat=%s user=%s: %s", msg.ChatID, msg.SenderID, text)
 
 	// Process asynchronously
 	go b.processMessage(msg.ChatID, text)
@@ -207,6 +225,28 @@ func (b *Bridge) processMessage(chatID, text string) {
 			log.Printf("[Bridge] Sent message to %s", chatID)
 		}
 	}
+}
+
+// isAllowed checks if the message passes the allowlist filter.
+// If no allowlist is configured (both empty), all messages are allowed.
+// If allow_users is set, the sender's open_id must be listed.
+// If allow_chats is set, the chat_id must be listed.
+// If both are set, either match is sufficient.
+func (b *Bridge) isAllowed(msg *feishu.Message) bool {
+	// No allowlist configured = allow all
+	if len(b.allowUsers) == 0 && len(b.allowChats) == 0 {
+		return true
+	}
+
+	if len(b.allowChats) > 0 && b.allowChats[msg.ChatID] {
+		return true
+	}
+
+	if len(b.allowUsers) > 0 && b.allowUsers[msg.SenderID] {
+		return true
+	}
+
+	return false
 }
 
 // shouldRespondInGroup determines if the bot should respond in a group chat

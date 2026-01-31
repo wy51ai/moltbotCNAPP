@@ -18,6 +18,8 @@ type FeishuConfig struct {
 	AppID               string
 	AppSecret           string
 	ThinkingThresholdMs int
+	AllowUsers          []string
+	AllowChats          []string
 }
 
 // ClawdbotConfig contains Clawdbot Gateway configuration
@@ -43,8 +45,10 @@ type bridgeJSON struct {
 		AppID     string `json:"app_id"`
 		AppSecret string `json:"app_secret"`
 	} `json:"feishu"`
-	ThinkingThresholdMs *int   `json:"thinking_threshold_ms,omitempty"`
-	AgentID             string `json:"agent_id"`
+	ThinkingThresholdMs *int     `json:"thinking_threshold_ms,omitempty"`
+	AgentID             string   `json:"agent_id"`
+	AllowUsers          []string `json:"allow_users,omitempty"`
+	AllowChats          []string `json:"allow_chats,omitempty"`
 }
 
 // Dir returns the config directory path
@@ -144,6 +148,13 @@ func Load() (*Config, error) {
 			GatewayToken: gwCfg.Gateway.Auth.Token,
 			AgentID:      "main",
 		},
+	}
+
+	if len(brCfg.AllowUsers) > 0 {
+		cfg.Feishu.AllowUsers = brCfg.AllowUsers
+	}
+	if len(brCfg.AllowChats) > 0 {
+		cfg.Feishu.AllowChats = brCfg.AllowChats
 	}
 
 	if brCfg.ThinkingThresholdMs != nil {
