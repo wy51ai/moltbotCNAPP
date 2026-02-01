@@ -21,6 +21,7 @@ type Message struct {
 	MessageID   string
 	ChatID      string
 	ChatType    string
+	SenderID    string
 	Content     string
 	Mentions    []Mention
 }
@@ -94,11 +95,20 @@ func (c *Client) handleMessage(ctx context.Context, event *larkim.P2MessageRecei
 		return nil
 	}
 
+	// Extract sender ID
+	senderID := ""
+	if event.Event.Sender != nil && event.Event.Sender.SenderId != nil {
+		if event.Event.Sender.SenderId.OpenId != nil {
+			senderID = *event.Event.Sender.SenderId.OpenId
+		}
+	}
+
 	// Build message
 	message := &Message{
 		MessageID: getStringValue(msg.MessageId),
 		ChatID:    getStringValue(msg.ChatId),
 		ChatType:  getStringValue(msg.ChatType),
+		SenderID:  senderID,
 		Content:   content.Text,
 	}
 
