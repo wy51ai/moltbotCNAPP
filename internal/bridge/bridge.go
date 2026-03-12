@@ -12,6 +12,17 @@ import (
 	"github.com/wy51ai/moltbotCNAPP/internal/feishu"
 )
 
+var (
+	questionWordPattern = regexp.MustCompile(`\b(?:why|how|what|when|where|who|help)\b`)
+	botTriggerPattern   = regexp.MustCompile(`^(?:alen|clawdbot|bot|助手|智能体)(?:$|[\s,:，：])`)
+	mentionPattern      = regexp.MustCompile(`@_user_\d+\s*`)
+
+	actionVerbs = []string{
+		"帮", "麻烦", "请", "能否", "可以", "解释", "看看",
+		"排查", "分析", "总结", "写", "改", "修", "查", "对比", "翻译",
+	}
+)
+
 // Bridge connects Feishu and ClawdBot
 type Bridge struct {
 	feishuClient   *feishu.Client
@@ -223,30 +234,24 @@ func shouldRespondInGroup(text string, mentions []feishu.Mention) bool {
 		return true
 	}
 
-	// English question words
-	questionWords := []string{"why", "how", "what", "when", "where", "who", "help"}
-	for _, word := range questionWords {
-		if regexp.MustCompile(`\b` + word + `\b`).MatchString(lowerText) {
-			return true
-		}
+	if questionWordPattern.MatchString(lowerText) {
+		return true
 	}
 
-	// Chinese action verbs
-	actionVerbs := []string{
-		"帮", "麻烦", "请", "能否", "可以", "解释", "看看",
-		"排查", "分析", "总结", "写", "改", "修", "查", "对比", "翻译",
-	}
-	for _, verb := range actionVerbs {
-		if strings.Contains(text, verb) {
-			return true
-		}
+	if containsAny(text, actionVerbs) {
+		return true
 	}
 
-	// Bot names/triggers
-	botTriggers := []string{"alen", "clawdbot", "bot", "助手", "智能体"}
-	for _, trigger := range botTriggers {
-		pattern := fmt.Sprintf(`^%s[\s,:，：]`, trigger)
-		if matched, _ := regexp.MatchString(pattern, lowerText); matched {
+	if botTriggerPattern.MatchString(lowerText) {
+		return true
+	}
+
+	return false
+}
+
+func containsAny(text string, keywords []string) bool {
+	for _, keyword := range keywords {
+		if strings.Contains(text, keyword) {
 			return true
 		}
 	}
@@ -256,6 +261,5 @@ func shouldRespondInGroup(text string, mentions []feishu.Mention) bool {
 
 // removeMentions removes @mention patterns from text
 func removeMentions(text string) string {
-	re := regexp.MustCompile(`@_user_\d+\s*`)
-	return re.ReplaceAllString(text, "")
+	return mentionPattern.ReplaceAllString(text, "")
 }
