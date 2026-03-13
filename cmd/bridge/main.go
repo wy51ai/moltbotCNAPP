@@ -183,7 +183,7 @@ func cmdRun() {
 		cfg.Clawdbot.AgentID,
 	)
 
-	bridgeInstance := bridge.NewBridge(nil, clawdbotClient, cfg.Feishu.ThinkingThresholdMs)
+	bridgeInstance := bridge.NewBridge(nil, clawdbotClient, cfg.Feishu.ThinkingThresholdMs, cfg.Feishu.AllowUsers, cfg.Feishu.AllowChats)
 
 	feishuClient := feishu.NewClient(
 		cfg.Feishu.AppID,
