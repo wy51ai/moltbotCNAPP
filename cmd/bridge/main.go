@@ -54,7 +54,7 @@ func main() {
 		}
 		cmdRun()
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\nUsage:\n  clawdbot-bridge start [fs_app_id=xxx fs_app_secret=yyy]\n  clawdbot-bridge stop\n  clawdbot-bridge status\n  clawdbot-bridge restart\n  clawdbot-bridge run\n")
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\nUsage:\n  clawdbot-bridge start [fs_app_id=xxx fs_app_secret=yyy]\n  clawdbot-bridge stop\n  clawdbot-bridge status\n  clawdbot-bridge restart\n  clawdbot-bridge run\n", cmd)
 		os.Exit(1)
 	}
 }
@@ -183,16 +183,6 @@ func cmdRun() {
 		cfg.Clawdbot.AgentID,
 	)
 
-	bridgeInstance := bridge.NewBridge(nil, clawdbotClient, cfg.Feishu.ThinkingThresholdMs)
-
-	feishuClient := feishu.NewClient(
-		cfg.Feishu.AppID,
-		cfg.Feishu.AppSecret,
-		bridgeInstance.HandleMessage,
-	)
-
-	bridgeInstance.SetFeishuClient(feishuClient)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -200,13 +190,64 @@ func cmdRun() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	errChan := make(chan error, 1)
-	go func() {
-		if err := feishuClient.Start(ctx); err != nil {
-			errChan <- err
-		}
-	}()
 
-	log.Println("[Main] ClawdBot Bridge started successfully")
+	// Declare bridgeInstance first to capture in handler closure
+	var bridgeInstance *bridge.Bridge
+
+	switch cfg.Mode {
+	case "webhook":
+		// Print startup info
+		log.Printf("[Main] Starting webhook mode on :%d%s (%d workers)",
+			cfg.Webhook.Port, cfg.Webhook.Path, cfg.Webhook.Workers)
+
+		// Create independent RESTSender (not through Client)
+		sender := feishu.NewRESTSender(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
+
+		// Create Bridge
+		bridgeInstance = bridge.NewBridge(sender, clawdbotClient, cfg.Feishu.ThinkingThresholdMs)
+
+		// Create WebhookReceiver
+		receiver := feishu.NewWebhookReceiver(feishu.WebhookConfig{
+			Port:              cfg.Webhook.Port,
+			Path:              cfg.Webhook.Path,
+			VerificationToken: cfg.Webhook.VerificationToken,
+			EncryptKey:        cfg.Webhook.EncryptKey,
+			Workers:           cfg.Webhook.Workers,
+			QueueSize:         cfg.Webhook.QueueSize,
+		}, func(msg *feishu.Message) error {
+			return bridgeInstance.HandleMessage(msg)
+		})
+
+		// Start receiver
+		go func() {
+			if err := receiver.Start(ctx); err != nil {
+				errChan <- err
+			}
+		}()
+
+	default: // "websocket" or empty
+		log.Printf("[Main] Starting websocket mode...")
+
+		// Existing WebSocket logic
+		feishuClient := feishu.NewClient(
+			cfg.Feishu.AppID,
+			cfg.Feishu.AppSecret,
+			func(msg *feishu.Message) error {
+				return bridgeInstance.HandleMessage(msg)
+			},
+		)
+
+		// Create Bridge with feishuClient
+		bridgeInstance = bridge.NewBridge(feishuClient, clawdbotClient, cfg.Feishu.ThinkingThresholdMs)
+
+		go func() {
+			if err := feishuClient.Start(ctx); err != nil {
+				errChan <- err
+			}
+		}()
+	}
+
+	log.Printf("[Main] ClawdBot Bridge started in %s mode", cfg.Mode)
 	log.Println("[Main] Press Ctrl+C to stop")
 
 	select {
@@ -242,8 +283,9 @@ func applyConfigArgs(args []string) {
 	kv := parseKeyValue(args)
 	appID := kv["fs_app_id"]
 	appSecret := kv["fs_app_secret"]
+	mode := kv["mode"]
 
-	if appID == "" && appSecret == "" {
+	if appID == "" && appSecret == "" && mode == "" {
 		return
 	}
 
@@ -264,6 +306,9 @@ func applyConfigArgs(args []string) {
 	if appSecret != "" {
 		cfg.Feishu.AppSecret = appSecret
 	}
+	if mode != "" {
+		cfg.Mode = mode
+	}
 	if v, ok := kv["agent_id"]; ok {
 		cfg.AgentID = v
 	}
@@ -282,10 +327,19 @@ func applyConfigArgs(args []string) {
 }
 
 type bridgeConfigJSON struct {
+	Mode   string `json:"mode,omitempty"`
 	Feishu struct {
 		AppID     string `json:"app_id"`
 		AppSecret string `json:"app_secret"`
 	} `json:"feishu"`
+	Webhook struct {
+		Port              int    `json:"port,omitempty"`
+		Path              string `json:"path,omitempty"`
+		VerificationToken string `json:"verification_token,omitempty"`
+		EncryptKey        string `json:"encrypt_key,omitempty"`
+		Workers           int    `json:"workers,omitempty"`
+		QueueSize         int    `json:"queue_size,omitempty"`
+	} `json:"webhook,omitempty"`
 	ThinkingThresholdMs int    `json:"thinking_threshold_ms,omitempty"`
 	AgentID             string `json:"agent_id,omitempty"`
 }
